@@ -1,0 +1,93 @@
+# Cross-Site Scripting (XSS) — OWASP A03:2021
+
+## What is XSS?
+
+Cross-Site Scripting (XSS) is a client-side code injection attack in which an attacker
+injects malicious scripts (usually JavaScript) into web pages viewed by other users.
+XSS attacks occur when an application includes unvalidated, unescaped user data in its
+output.
+
+---
+
+## Types of XSS
+
+1. Reflected XSS — Malicious script is in the URL/request, reflected in the response
+2. Stored XSS — Malicious script is stored in the database and served to all visitors
+3. DOM-based XSS — Vulnerability in client-side JavaScript that processes user input
+
+---
+
+## OWASP Classification
+
+OWASP Top 10 2021 — A03: Injection (Cross-Site Scripting)
+CWE-79: Improper Neutralization of Input During Web Page Generation
+Severity: High to Critical (depending on impact)
+
+---
+
+## Vulnerable Code Examples
+
+1. Python/Flask — Unescaped rendering (VULNERABLE):
+```python
+from flask import request, render_template_string
+@app.route("/search")
+def search():
+    query = request.args.get("q", "")
+    return render_template_string("<h1>Results for: " + query + "</h1>")
+```
+
+2. Python — Markup without escaping (VULNERABLE):
+```python
+from markupsafe import Markup
+def render_comment(comment):
+    return Markup("<p>" + comment + "</p>")
+```
+
+3. JavaScript — innerHTML (VULNERABLE):
+```javascript
+document.getElementById("output").innerHTML = userInput;
+```
+
+---
+
+## Secure Code Examples
+
+1. Python — html.escape (SAFE):
+```python
+import html
+query = request.args.get("q", "")
+safe_query = html.escape(query)
+return f"<h1>Results for: {safe_query}</h1>"
+```
+
+2. Python/Jinja2 — Auto-escaped template (SAFE):
+```python
+# Jinja2 auto-escapes variables in templates
+return render_template("search.html", query=query)
+# In search.html: <h1>Results for: {{ query }}</h1>
+```
+
+3. JavaScript — textContent (SAFE):
+```javascript
+document.getElementById("output").textContent = userInput;
+```
+
+4. Python — bleach for HTML sanitization (SAFE):
+```python
+import bleach
+allowed_tags = ["b", "i", "em", "strong"]
+clean_html = bleach.clean(user_html, tags=allowed_tags)
+```
+
+---
+
+## Prevention Checklist
+
+- Always escape user data before rendering in HTML (html.escape in Python)
+- Use template engines with auto-escaping enabled (Jinja2, Thymeleaf)
+- Implement a Content Security Policy (CSP) header
+- Use textContent instead of innerHTML in JavaScript
+- Validate and sanitize all user inputs on the server side
+- Use HTTPOnly and Secure flags on session cookies
+- Encode data for the correct context (HTML, JS, CSS, URL)
+- Implement input validation with allowlists (not denylists)

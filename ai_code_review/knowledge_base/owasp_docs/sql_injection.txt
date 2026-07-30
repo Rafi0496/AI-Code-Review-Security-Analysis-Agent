@@ -1,0 +1,88 @@
+# SQL Injection — OWASP A03:2021
+
+## What is SQL Injection?
+
+SQL Injection (SQLi) is a code injection technique that exploits security vulnerabilities
+in an application's database interaction layer. It occurs when user-controlled input is
+inserted directly into SQL queries without proper sanitization or parameterization.
+
+---
+
+## Why is it Dangerous?
+
+An attacker who successfully exploits SQL Injection can:
+- Bypass authentication (e.g., login as admin without credentials)
+- Read sensitive data from the database (usernames, passwords, credit cards)
+- Modify or delete database records
+- Execute administrative operations on the database server
+- In some cases, execute OS commands on the database server
+
+---
+
+## OWASP Classification
+
+OWASP Top 10 2021 — A03: Injection
+CWE-89: Improper Neutralization of Special Elements used in an SQL Command
+Severity: Critical
+
+---
+
+## Vulnerable Code Examples
+
+1. Python — String concatenation (VULNERABLE):
+```python
+username = request.GET["username"]
+query = "SELECT * FROM users WHERE username = '" + username + "'"
+cursor.execute(query)
+```
+
+2. Python — f-string (VULNERABLE):
+```python
+user_id = request.args.get("id")
+cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+```
+
+3. Java — Statement (VULNERABLE):
+```java
+String username = request.getParameter("username");
+String query = "SELECT * FROM users WHERE username = '" + username + "'";
+Statement stmt = conn.createStatement();
+ResultSet rs = stmt.executeQuery(query);
+```
+
+---
+
+## Secure Code Examples
+
+1. Python — Parameterized query (SAFE):
+```python
+username = request.GET["username"]
+cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+```
+
+2. Python — SQLAlchemy ORM (SAFE):
+```python
+user = session.query(User).filter(User.username == username).first()
+```
+
+3. Java — PreparedStatement (SAFE):
+```java
+String username = request.getParameter("username");
+PreparedStatement pstmt = conn.prepareStatement(
+    "SELECT * FROM users WHERE username = ?"
+);
+pstmt.setString(1, username);
+ResultSet rs = pstmt.executeQuery();
+```
+
+---
+
+## Prevention Checklist
+
+- Always use parameterized queries or prepared statements
+- Use an ORM (SQLAlchemy, Django ORM, Hibernate) wherever possible
+- Apply principle of least privilege to database accounts
+- Validate and sanitize all user inputs before using them in queries
+- Use stored procedures with parameterization
+- Enable database query logging to detect injection attempts
+- Regularly test with automated SQL injection scanners (sqlmap, OWASP ZAP)

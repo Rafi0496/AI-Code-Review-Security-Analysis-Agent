@@ -1,0 +1,95 @@
+# Cross-Site Request Forgery (CSRF) — OWASP A01:2021
+
+## What is CSRF?
+
+Cross-Site Request Forgery (CSRF) is an attack that tricks a victim's browser into
+making an unintended HTTP request to a web application in which the victim is
+authenticated. It exploits the trust that a web app has in the victim's browser.
+
+---
+
+## How CSRF Works
+
+1. Victim logs in to legitimate website (e.g., bank.com) — session cookie is set
+2. Without logging out, victim visits an attacker-controlled malicious page
+3. Malicious page makes a cross-origin POST request to bank.com
+4. Browser automatically includes session cookie with the request
+5. Bank.com sees a valid session and processes the transfer
+
+---
+
+## OWASP Classification
+
+OWASP Top 10 2021 — A01: Broken Access Control (CSRF subcategory)
+CWE-352: Cross-Site Request Forgery
+Severity: High
+
+---
+
+## Vulnerable Code Example
+
+```python
+# Django view — no CSRF protection (VULNERABLE)
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt  # NEVER do this for state-changing operations
+def transfer_funds(request):
+    if request.method == "POST":
+        amount = request.POST.get("amount")
+        to_account = request.POST.get("to_account")
+        # Processes transfer with no CSRF validation
+        do_transfer(amount, to_account)
+```
+
+---
+
+## Secure Code Examples
+
+1. Django — Use built-in CSRF protection (SAFE):
+```python
+# In settings.py — ensure this middleware is present:
+MIDDLEWARE = [
+    "django.middleware.csrf.CsrfViewMiddleware",
+    # ...
+]
+
+# In template:
+# <form method="post">{% csrf_token %}</form>
+
+# OR in view for APIs:
+from django.views.decorators.csrf import csrf_protect
+@csrf_protect
+def transfer_funds(request):
+    ...
+```
+
+2. Flask — Flask-WTF CSRF protection (SAFE):
+```python
+from flask_wtf.csrf import CSRFProtect
+csrf = CSRFProtect(app)
+
+# In template:
+# <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+```
+
+3. FastAPI — CSRF token validation (SAFE):
+```python
+from fastapi import Header, HTTPException
+
+async def verify_csrf(x_csrf_token: str = Header(...)):
+    if not validate_csrf_token(x_csrf_token):
+        raise HTTPException(status_code=403, detail="CSRF token invalid")
+```
+
+---
+
+## Prevention Checklist
+
+- Enable CSRF middleware in all web frameworks (Django CsrfViewMiddleware)
+- Include CSRF tokens in all state-changing forms
+- Validate CSRF tokens server-side on all POST/PUT/DELETE requests
+- Use SameSite=Strict or SameSite=Lax cookie attribute
+- Check the Referer/Origin header for AJAX requests
+- Implement CSRF protection for API endpoints that use cookie authentication
+- Never use @csrf_exempt on sensitive, state-changing endpoints
+- Use custom request headers (X-Requested-With) for AJAX to leverage CORS protection

@@ -1,0 +1,200 @@
+{
+  "submission": {
+    "language": "python",
+    "lines": 103,
+    "source": "paste",
+    "filename": "vulnerable_python.py"
+  },
+  "execution_time_seconds": 4.46,
+  "summary": {
+    "total_findings": 21,
+    "severity_breakdown": {
+      "Critical": 6,
+      "High": 0,
+      "Medium": 6,
+      "Low": 9
+    },
+    "category_breakdown": {
+      "Security": 6,
+      "Code Smell": 2,
+      "Error Handling": 1,
+      "Complexity": 3,
+      "Documentation": 9
+    },
+    "risk_level": "Critical"
+  },
+  "findings": [
+    {
+      "type": "Hardcoded Secret",
+      "description": "Variable 'API_KEY' appears to contain a hardcoded credential. Use environment variables or a secrets manager instead.",
+      "line": 11,
+      "severity": "Critical",
+      "category": "Security",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Hardcoded Secret",
+      "description": "Variable 'DB_PASSWORD' appears to contain a hardcoded credential. Use environment variables or a secrets manager instead.",
+      "line": 12,
+      "severity": "Critical",
+      "category": "Security",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Hardcoded Credentials (OWASP A07:2021)",
+      "description": "Potential security misconfiguration detected at line 11: 'API_KEY = \"sk-prod-abc123xyz789secret\"'. Review and move sensitive values to environment variables.",
+      "line": 11,
+      "severity": "Critical",
+      "category": "Security",
+      "source": "Pattern Scan",
+      "agent": "Security Vulnerability Agent"
+    },
+    {
+      "type": "Hardcoded Credentials (OWASP A07:2021)",
+      "description": "Potential security misconfiguration detected at line 12: 'DB_PASSWORD = \"admin123\"'. Review and move sensitive values to environment variables.",
+      "line": 12,
+      "severity": "Critical",
+      "category": "Security",
+      "source": "Pattern Scan",
+      "agent": "Security Vulnerability Agent"
+    },
+    {
+      "type": "Hardcoded Credentials (OWASP A07:2021)",
+      "description": "Potential security misconfiguration detected at line 21: 'query = f\"SELECT * FROM users WHERE username='{username}' AND password='{password}'\"'. Review and move sensitive values to environment variables.",
+      "line": 21,
+      "severity": "Critical",
+      "category": "Security",
+      "source": "Pattern Scan",
+      "agent": "Security Vulnerability Agent"
+    },
+    {
+      "type": "Hardcoded Credentials (OWASP A07:2021)",
+      "description": "Potential security misconfiguration detected at line 94: 'self.admin_password = \"admin123\"  # Hardcoded credential'. Review and move sensitive values to environment variables.",
+      "line": 94,
+      "severity": "Critical",
+      "category": "Security",
+      "source": "Pattern Scan",
+      "agent": "Security Vulnerability Agent"
+    },
+    {
+      "type": "Too Many Parameters",
+      "description": "Function 'process_everything' has 7 parameters (threshold: 5). Consider using a data class or configuration object.",
+      "line": 37,
+      "severity": "Medium",
+      "category": "Code Smell",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Too Many Parameters",
+      "description": "Function 'add_user' has 8 parameters (threshold: 5). Consider using a data class or configuration object.",
+      "line": 96,
+      "severity": "Medium",
+      "category": "Code Smell",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Bare Except Clause",
+      "description": "Bare 'except:' catches all exceptions including SystemExit and KeyboardInterrupt. Use 'except Exception as e:' instead.",
+      "line": 73,
+      "severity": "Medium",
+      "category": "Error Handling",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Excessive Nesting Depth",
+      "description": "Nesting depth of 5 detected at line 44 (threshold: 4). Refactor using early returns or helper functions.",
+      "line": 44,
+      "severity": "Medium",
+      "category": "Complexity",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Excessive Nesting Depth",
+      "description": "Nesting depth of 6 detected at line 46 (threshold: 4). Refactor using early returns or helper functions.",
+      "line": 46,
+      "severity": "Medium",
+      "category": "Complexity",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Excessive Nesting Depth",
+      "description": "Nesting depth of 7 detected at line 47 (threshold: 4). Refactor using early returns or helper functions.",
+      "line": 47,
+      "severity": "Medium",
+      "category": "Complexity",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function 'get_user' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 16,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function 'ping_host' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 31,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function 'process_everything' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 37,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function 'risky_operation' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 70,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function 'hash_password' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 78,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function 'load_user_data' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 84,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function '__init__' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 92,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function 'add_user' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 96,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    },
+    {
+      "type": "Missing Docstring",
+      "description": "Function 'process' has no docstring. Add a docstring describing the function's purpose, parameters, and return value.",
+      "line": 100,
+      "severity": "Low",
+      "category": "Documentation",
+      "agent": "Code Analysis Agent"
+    }
+  ]
+}
