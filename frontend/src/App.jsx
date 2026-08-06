@@ -437,7 +437,6 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
             <input
               ref={fileRef}
               type="file"
-              accept=".py,.java"
               style={{ display: 'none' }}
               onChange={e => { if (e.target.files[0]) setFile(e.target.files[0]) }}
             />
@@ -451,15 +450,18 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
                   {file.name} &nbsp;·&nbsp; {(file.size / 1024).toFixed(1)} KB
                 </div>
                 <div className="dropzone-hint">Click or drop to replace</div>
+                <button
+                  className="toolbar-btn toolbar-btn-danger"
+                  style={{ marginTop: '1rem', position: 'relative', zIndex: 10, display: 'inline-flex', margin: '1rem auto 0 auto' }}
+                  onClick={(e) => { e.stopPropagation(); setFile(null); setMode('paste'); }}
+                >
+                  <Icon.X /> Remove File
+                </button>
               </>
             ) : (
               <>
                 <div className="dropzone-label">Drop your source file here</div>
-                <div className="dropzone-hint">or click to browse</div>
-                <div className="dropzone-exts">
-                  <span className="chip chip-cat">.py</span>
-                  <span className="chip chip-cat">.java</span>
-                </div>
+                <div className="dropzone-hint">or click to browse any programming language</div>
               </>
             )}
           </div>
