@@ -662,6 +662,23 @@ function ResultsTab({ result, onNewAnalysis }) {
         </button>
       </div>
 
+      {/* PR Summary */}
+      {result.pr_summary && (
+        <div className="pr-summary-banner glass" style={{ padding: '1.5rem', marginBottom: '1.5rem', borderLeft: '4px solid var(--accent-primary)' }}>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Icon.GitMerge /> {result.pr_summary.title || "PR Summary"}
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '1rem' }}>
+            {result.pr_summary.executive_summary}
+          </p>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <span className="chip chip-time">
+              <Icon.Cpu /> Fix time: {result.pr_summary.estimated_fix_time || "N/A"}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Filter bar */}
       <div className="filter-row">
         <div className="filter-bar">
@@ -707,7 +724,7 @@ const SUGGESTIONS = [
   'Secure error handling?',
 ]
 
-function SecurityWidget() {
+function SecurityWidget({ result }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([{
     role: 'bot',
@@ -731,7 +748,14 @@ function SecurityWidget() {
     setLoading(true)
 
     try {
-      const data = await api.askRAG(q, 5)
+      let contextStr = ""
+      if (result && result.findings) {
+          contextStr = JSON.stringify(result.findings.map(f => ({
+              type: f.type, description: f.description, severity: f.severity, recommendation: f.recommendation
+          })))
+      }
+      
+      const data = await api.askRAG(q, contextStr, 5)
       const context = data.results ?? []
       const answer = data.answer || "I could not generate a response."
 
@@ -892,7 +916,7 @@ export default function App() {
           </div>
           <div>
             <div className="brand-name">
-              <span>AI Code Analysis</span> Agent
+              <span>Smart Code Inspection</span> Platform
             </div>
             <div className="brand-tag">Security &amp; Quality Review Platform</div>
           </div>
@@ -933,7 +957,7 @@ export default function App() {
       </main>
 
       {/* Floating Security Widget */}
-      <SecurityWidget />
+      <SecurityWidget result={result} />
 
       {/* Toast notification */}
       {toast && (

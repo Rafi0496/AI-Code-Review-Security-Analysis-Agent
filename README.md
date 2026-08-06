@@ -1,4 +1,4 @@
-# AI Code Review and Security Analysis Agent
+# Development of Smart Code Inspection Platform with Vulnerability Detection System
 
 An intelligent, multi-agent platform designed to automatically analyze source code for quality issues, security vulnerabilities, and adherence to secure coding best practices.
 

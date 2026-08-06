@@ -36,8 +36,8 @@ export const api = {
   },
 
   /** Query the OWASP RAG knowledge base */
-  askRAG: (query, top_k = 5) =>
-    post('/rag/query', { query, top_k }),
+  askRAG: (query, context = "", top_k = 5) =>
+    post('/rag/query', { question: query, context }),
 
   /** Ping the backend */
   ping: () =>
