@@ -218,73 +218,89 @@ Health Score: {score}/100"""
         "markdown_report": ""
     }
 
-# ── LYCA CHATBOT — uses Gemini primary, Groq fallback ────────────
+# ── FIX ALL CODE — generates complete corrected version ──────────
+class FixAllRequest(BaseModel):
+    code: str
+    language: str
+    findings: list = []
+
+@app.post("/fix-all")
+async def fix_all_code(req: FixAllRequest):
+    findings_text = ""
+    for f in req.findings[:10]:
+        findings_text += f"- {f.get('type','Issue')} at line {f.get('line',0)}: {f.get('description','')}\n"
+    
+    prompt = f"""You are a senior {req.language} developer. Fix ALL the security vulnerabilities and code quality issues listed below in the given code.
+
+ISSUES TO FIX:
+{findings_text}
+
+ORIGINAL CODE:
+```{req.language}
+{req.code}
+```
+
+Return ONLY the complete fixed code. Do not explain. Do not use markdown fences. Just output the corrected source code."""
+    
+    try:
+        fixed = gemini_generate(prompt)
+        # Remove any markdown fences Gemini might add
+        fixed = re.sub(r'^```(?:python|java)?\n?', '', fixed.strip())
+        fixed = re.sub(r'\n?```$', '', fixed.strip())
+        return {"fixed_code": fixed, "status": "success"}
+    except Exception as e:
+        return {"fixed_code": req.code, "status": "error", "message": str(e)}
+
+# ── LYCA CHATBOT — uses Gemini, no JSON requirement ──────────────
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
-    fallback = {
-        "answer": "I apologize, I could not generate a response. Please try again.",
-        "code_example": "",
-        "sources": [],
-        "related_questions": ["What is OWASP?", "How to write secure code?"],
-        "confidence": "low"
-    }
-    
-    # Build context prompt
-    user_content = ""
+    # Build context
+    context = ""
     if req.context_code:
-        user_content += f"The user has submitted this code for review:\n```\n{req.context_code[:1000]}\n```\n\n"
+        context += f"User's code:\n{req.context_code[:800]}\n\n"
     if req.context_findings:
-        user_content += f"Analysis found these issues: {json.dumps(req.context_findings[:5])}\n\n"
+        context += f"Analysis found: {json.dumps(req.context_findings[:3])}\n\n"
     
-    history_text = ""
-    for m in req.conversation_history[-6:]:
+    history = ""
+    for m in req.conversation_history[-4:]:
         role = "User" if m.get("role") == "user" else "Lyca"
-        history_text += f"{role}: {m.get('content', '')}\n"
+        history += f"{role}: {m.get('content', '')}\n"
     
-    if history_text:
-        user_content += f"Previous conversation:\n{history_text}\n"
-    user_content += f"User's question: {req.question}"
+    prompt = f"""You are Lyca, a friendly and highly intelligent AI assistant. Answer ANY question the user asks — coding, security, math, science, general knowledge, anything.
+
+Rules:
+- Give clear, helpful, detailed answers
+- Include code examples when relevant
+- Be conversational and friendly
+
+{context}{history}
+User: {req.question}
+
+Lyca:"""
     
-    sys_prompt = """You are 'Lyca', a highly intelligent AI chatbot. You can answer ANY question — coding, general knowledge, math, science, security, career advice, anything.
-For security and coding questions, provide code examples when helpful.
-Respond in this exact JSON format:
-{"answer": "your detailed response", "code_example": "code snippet if relevant, otherwise empty string", "sources": ["relevant sources"], "related_questions": ["follow-up question 1", "follow-up question 2"], "confidence": "high"}
-Return ONLY valid JSON. No markdown fences around the JSON."""
-    
-    full_prompt = sys_prompt + "\n\n" + user_content
-    
-    # Try Gemini first (most reliable)
     try:
-        raw = gemini_generate(full_prompt)
-        text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
-        data = json.loads(text)
-        if "answer" in data and len(data["answer"]) > 5:
-            return data
-    except:
-        pass
-    
-    # Try Groq as fallback
-    try:
-        raw = groq_generate(user_content, sys_prompt)
-        if raw:
-            text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
-            data = json.loads(text)
-            if "answer" in data:
-                return data
-            else:
-                fallback["answer"] = raw
-                return fallback
-    except:
-        pass
-    
-    # Last resort: use Gemini without JSON constraint
-    try:
-        raw = gemini_generate(f"Answer this question helpfully: {req.question}")
-        fallback["answer"] = raw
-        fallback["confidence"] = "medium"
-        return fallback
-    except:
-        return fallback
+        answer = gemini_generate(prompt)
+        # Try to extract a code example if present
+        code_example = ""
+        code_match = re.search(r'```(?:\w+)?\n(.+?)\n```', answer, re.DOTALL)
+        if code_match:
+            code_example = code_match.group(1)
+        
+        return {
+            "answer": answer,
+            "code_example": code_example,
+            "sources": [],
+            "related_questions": [],
+            "confidence": "high"
+        }
+    except Exception as e:
+        return {
+            "answer": f"Sorry, I encountered an error: {str(e)}. Please try again.",
+            "code_example": "",
+            "sources": [],
+            "related_questions": [],
+            "confidence": "low"
+        }
 
 # ── Static Analysis Engine ───────────────────────────────────────
 def static_analysis(code, language):

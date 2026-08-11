@@ -7,14 +7,14 @@
 
 /* ── Design Tokens ───────────────────────────────────────── */
 :root {
-  --bg-space:        #06060f;
-  --bg-deep:         #080c18;
+  --bg-space:        #0a0a12;
+  --bg-deep:         #0c0e1a;
 
-  --glass-1:         rgba(255,255,255,0.04);
-  --glass-2:         rgba(255,255,255,0.07);
-  --glass-3:         rgba(255,255,255,0.11);
-  --glass-border:    rgba(255,255,255,0.09);
-  --glass-border-hv: rgba(255,255,255,0.18);
+  --glass-1:         rgba(255,255,255,0.025);
+  --glass-2:         rgba(255,255,255,0.045);
+  --glass-3:         rgba(255,255,255,0.07);
+  --glass-border:    rgba(255,255,255,0.07);
+  --glass-border-hv: rgba(255,255,255,0.14);
 
   --violet:   #7c3aed;
   --violet-l: #a78bfa;
@@ -37,9 +37,9 @@
   --sev-m:  #eab308;  --sev-m-bg: rgba(234,179,8,0.12);  --sev-m-border: rgba(234,179,8,0.35);
   --sev-l:  #22c55e;  --sev-l-bg: rgba(34,197,94,0.12);  --sev-l-border: rgba(34,197,94,0.35);
 
-  --text-1: #fdfdfd;
-  --text-2: #e0e0e0;
-  --text-3: #c0c0c0;
+  --text-1: #f0f0f4;
+  --text-2: #b0b4c0;
+  --text-3: #787c90;
 
   --font: 'Inter', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', 'Fira Code', monospace;
@@ -1074,3 +1074,70 @@ textarea:focus-visible, input:focus-visible { outline: none; }
   border-radius: var(--r-full); cursor: pointer; transition: all var(--t);
 }
 .related-question-chip:hover { background: rgba(6,182,212,0.2); }
+
+/* ── Glassmorphism + Minimalism Refinements ────────────────── */
+
+/* Export buttons — sleek glass pill style */
+.export-btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--r-full);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(8px);
+  color: var(--text-2);
+  font-size: 0.78rem; font-weight: 600;
+  cursor: pointer;
+  transition: all var(--t);
+  letter-spacing: 0.01em;
+}
+.export-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+  box-shadow: 0 0 20px rgba(255,255,255,0.05);
+  color: #fff;
+}
+.export-btn:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}
+
+/* Chat message text — preserve line breaks and formatting */
+.msg-bubble {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.6;
+}
+
+/* Glass panel universal refinement */
+.glass {
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+}
+
+/* Finding cards — cleaner minimalist borders */
+.finding.glass {
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.finding.glass:hover {
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+/* Severity cards — refined */
+.sev-card.glass {
+  border: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(12px);
+  transition: all 0.25s ease;
+}
+.sev-card.glass:hover {
+  border-color: rgba(255,255,255,0.14);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+/* Risk banner — refined glass */
+.risk-banner.glass {
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(16px);
+}

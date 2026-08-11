@@ -769,6 +769,9 @@ function ResultsTab({ result, onNewAnalysis }) {
   const [prReport, setPrReport] = useState(null)
   const [prLoading, setPrLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [fixedCode, setFixedCode] = useState(null)
+  const [fixLoading, setFixLoading] = useState(false)
+  const [showFixed, setShowFixed] = useState(false)
 
   // Auto-fetch PR summary when result loads
   useEffect(() => {
@@ -907,8 +910,53 @@ function ResultsTab({ result, onNewAnalysis }) {
               <Icon.FileText /> {showPreview ? 'Close Preview' : 'Preview Report'}
             </button>
           )}
+          {result._submittedCode && (
+            <button
+              className="export-btn"
+              onClick={async () => {
+                if (fixedCode) { setShowFixed(f => !f); return }
+                setFixLoading(true)
+                try {
+                  const data = await api.fixAll(result._submittedCode, result._submittedLanguage || 'python', result.findings || [])
+                  setFixedCode(data.fixed_code)
+                  setShowFixed(true)
+                } catch (err) { setFixedCode('// Error generating fix: ' + err.message) ; setShowFixed(true) }
+                finally { setFixLoading(false) }
+              }}
+              disabled={fixLoading}
+              style={{ borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: 'var(--emerald-l)' }}
+            >
+              {fixLoading ? <><span className="spin" style={{ width: 12, height: 12, borderWidth: 2 }} /> Generating...</> : <><Icon.Wrench /> {showFixed ? 'Hide Fixed Code' : 'Generate Fixed Code'}</>}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Fixed Code Panel */}
+      {showFixed && fixedCode && (
+        <div className="remediation-card" style={{ marginBottom: '1.5rem' }}>
+          <div className="remediation-header">
+            <Icon.Wrench /> Complete Fixed Code
+            <button
+              className="export-btn"
+              style={{ marginLeft: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.75rem' }}
+              onClick={() => { navigator.clipboard.writeText(fixedCode); }}
+            >
+              <Icon.Copy /> Copy Code
+            </button>
+          </div>
+          <div className="diff-container" style={{ flexDirection: 'column' }}>
+            <div className="diff-panel diff-before" style={{ borderRight: 'none', borderBottom: '1px solid var(--glass-border)', maxHeight: '300px', overflow: 'auto' }}>
+              <div className="diff-label">Original Code (With Issues)</div>
+              <pre className="diff-code">{result._submittedCode || '—'}</pre>
+            </div>
+            <div className="diff-panel diff-after" style={{ maxHeight: '300px', overflow: 'auto' }}>
+              <div className="diff-label">Fixed Code (All Issues Resolved)</div>
+              <pre className="diff-code">{fixedCode}</pre>
+            </div>
+          </div>
+        </div>
+      )}
 
       {prLoading && (
         <div className="pr-report-card glass" style={{ textAlign: 'center', padding: '2rem' }}>

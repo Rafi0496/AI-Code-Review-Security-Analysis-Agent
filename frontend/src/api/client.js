@@ -56,6 +56,10 @@ export const api = {
       conversation_history: conversationHistory,
     }),
 
+  /** Fix all code issues at once */
+  fixAll: (code, language, findings = []) =>
+    post('/fix-all', { code, language, findings }),
+
   /** Ping the backend */
   ping: () =>
     fetch(`${BASE}/health`)
