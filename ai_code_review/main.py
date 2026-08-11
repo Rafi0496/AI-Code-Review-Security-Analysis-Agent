@@ -45,6 +45,40 @@ async def root():
 async def health():
     return {"status": "healthy", "version": "3.0.0"}
 
+# ── Gemini helper (primary for ALL AI tasks) ─────────────────────
+def gemini_generate(prompt: str) -> str:
+    response = client.models.generate_content(
+        model='gemini-2.0-flash',
+        contents=prompt
+    )
+    return response.text
+
+# ── Groq helper (fallback only) ──────────────────────────────────
+def groq_generate(prompt: str, system_prompt: str = "") -> str | None:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key: return None
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    data = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": messages,
+        "temperature": 0.3,
+        "max_tokens": 2048,
+    }
+    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            return result["choices"][0]["message"]["content"]
+    except:
+        return None
+
 @app.post("/analyze/text")
 async def analyze_text(req: AnalyzeTextRequest):
     try:
@@ -58,9 +92,7 @@ async def analyze_text(req: AnalyzeTextRequest):
         sev = {"Critical":0,"High":0,"Medium":0,"Low":0}
         for f in unique: sev[f.get("severity","Low")] = sev.get(f.get("severity","Low"),0)+1
         risk = "Critical" if sev["Critical"]>0 else "High" if sev["High"]>0 else "Medium" if sev["Medium"]>0 else "Low"
-        
         pr_summary = generate_pr_summary(unique)
-        
         return {
             "submission": {"language": req.language, "lines": len(req.code.splitlines()), "source": "paste"},
             "execution_time_seconds": 3.5,
@@ -93,171 +125,171 @@ async def rag_query(req: RAGQueryRequest):
 async def rag_rebuild():
     return {"status": "ok", "message": "Knowledge base rebuilt"}
 
-def groq_generate(prompt: str, system_prompt: str = "") -> str | None:
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key: return None
-    
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt})
-    
-    data = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": messages,
-        "temperature": 0.3,
-        "max_tokens": 2048,
-        "response_format": {"type": "json_object"}
-    }
-    
-    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    })
-    
-    try:
-        with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            return result["choices"][0]["message"]["content"]
-    except:
-        return None
-
+# ── REMEDIATION AGENT — uses Gemini primary, Groq fallback ───────
 @app.post("/remediate")
 async def remediate(req: RemediateRequest):
     fallback = {
         "finding_type": req.finding.get("type", "Unknown"),
         "severity": req.finding.get("severity", "Medium"),
         "fix_summary": req.finding.get("recommendation", "Review and fix this issue."),
-        "corrected_code": "// Fix not available — review manually",
+        "corrected_code": "// Fix not available",
         "best_practice": "Follow secure coding standards and OWASP guidelines.",
         "owasp_reference": "OWASP Top 10",
         "before_code": "// See original code",
         "after_code": "// Apply recommended fix"
     }
+    sys_prompt = "You are a secure coding expert. Return ONLY valid JSON with keys: finding_type, severity, fix_summary, corrected_code, best_practice, owasp_reference, before_code, after_code. The before_code should show the exact vulnerable code snippet and after_code should show the corrected version."
+    prompt = f"Finding: {json.dumps(req.finding)}\nLanguage: {req.language}\nCode:\n{req.code[:1500]}\nProvide the requested JSON remediation."
+    
+    # Try Gemini first (reliable)
     try:
-        sys_prompt = "You are a secure coding expert. Return ONLY valid JSON with keys: finding_type, severity, fix_summary, corrected_code, best_practice, owasp_reference, before_code, after_code."
-        prompt = f"Finding: {json.dumps(req.finding)}\nLanguage: {req.language}\nCode:\n{req.code}\nProvide the requested JSON remediation."
-        res = groq_generate(prompt, sys_prompt)
-        if not res: return fallback
-        try:
-            text = re.sub(r"```(?:json)?\n?","",res.strip()).strip()
-            return json.loads(text)
-        except:
-            return fallback
+        raw = gemini_generate(sys_prompt + "\n\n" + prompt)
+        text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
+        result = json.loads(text)
+        if "fix_summary" in result:
+            return result
     except:
-        return fallback
+        pass
+    
+    # Try Groq as fallback
+    try:
+        raw = groq_generate(prompt, sys_prompt)
+        if raw:
+            text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
+            result = json.loads(text)
+            if "fix_summary" in result:
+                return result
+    except:
+        pass
+    
+    return fallback
 
+# ── PR SUMMARY — uses Gemini ─────────────────────────────────────
 @app.post("/pr-summary")
 async def pr_summary_endpoint(req: PRSummaryRequest):
+    result = req.analysis_result
+    findings = result.get("findings", [])
+    sev = result.get("summary", {}).get("severity_breakdown", {"Critical":0, "High":0, "Medium":0, "Low":0})
+    score = max(0, 100 - (sev.get("Critical",0)*20 + sev.get("High",0)*10 + sev.get("Medium",0)*5 + sev.get("Low",0)*2))
+    prioritized = sorted(findings, key=lambda x: ["Critical","High","Medium","Low"].index(x.get("severity", "Low")))
+    
+    # Build detailed findings list for the report
+    detailed_findings = []
+    for f in prioritized[:15]:
+        detailed_findings.append({
+            "type": f.get("type", "Issue"),
+            "severity": f.get("severity", "Medium"),
+            "line": f.get("line", 0),
+            "description": f.get("description", ""),
+            "recommendation": f.get("recommendation", "Review manually."),
+            "category": f.get("category", "General")
+        })
+    
     try:
-        result = req.analysis_result
-        findings = result.get("findings", [])
-        sev = result.get("summary", {}).get("severity_breakdown", {"Critical":0, "High":0, "Medium":0, "Low":0})
-        
-        score = 100 - (sev.get("Critical",0)*20 + sev.get("High",0)*10 + sev.get("Medium",0)*5 + sev.get("Low",0)*2)
-        score = max(0, score)
-        
-        prompt = f'''You are a PR Summary agent.
-Based on the following findings, return a JSON with: "executive_overview", "top_critical_findings" (list of strings with impact statements), "positive_observations" (list of strings).
-Return raw JSON only.
-Findings: {json.dumps(findings[:50])}
-Severity: {json.dumps(sev)}
-Score: {score}'''
-        
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt
-        )
-        text = re.sub(r"```(?:json)?\n?","",response.text.strip()).strip()
+        prompt = f"""You are a PR Summary agent. Based on the following code review findings, write a professional summary.
+Return ONLY raw JSON with these exact keys:
+- "executive_overview": A 2-3 sentence professional summary of the code quality and security posture.
+- "top_critical_findings": A list of strings describing the most dangerous issues found, each with impact statement.
+- "positive_observations": A list of strings noting any good practices observed.
+Findings: {json.dumps(findings[:30])}
+Severity Breakdown: {json.dumps(sev)}
+Health Score: {score}/100"""
+        raw = gemini_generate(prompt)
+        text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
         data = json.loads(text)
-        
-        prioritized = sorted(findings, key=lambda x: ["Critical","High","Medium","Low"].index(x.get("severity", "Low")))
-        
-        md_report = f"# Code Review Report\n\n## Score: {score}/100\n\n## Overview\n{data.get('executive_overview', 'Review completed.')}\n\n## Priority Fixes\n"
-        for f in prioritized[:10]:
-            md_report += f"- **{f.get('severity', 'Low')}**: {f.get('type', 'Issue')} at line {f.get('line', 0)}\n"
-            
-        return {
-            "pr_title": f"Security Review: {req.filename}",
-            "executive_overview": data.get("executive_overview", "Code review completed."),
-            "risk_level": result.get("summary", {}).get("risk_level", "Unknown"),
-            "code_health_score": score,
-            "severity_breakdown": sev,
-            "top_critical_findings": data.get("top_critical_findings", []),
-            "prioritized_fix_list": prioritized,
-            "positive_observations": data.get("positive_observations", []),
-            "estimated_fix_time": "1 hour",
-            "markdown_report": md_report
+    except:
+        data = {
+            "executive_overview": f"Code analysis found {len(findings)} issues across the codebase. {sev.get('Critical',0)} critical and {sev.get('High',0)} high severity vulnerabilities require immediate attention.",
+            "top_critical_findings": [f"{f.get('type','Issue')} at line {f.get('line',0)}: {f.get('description','')[:80]}" for f in prioritized[:5] if f.get('severity') in ['Critical','High']],
+            "positive_observations": ["Code structure was successfully analyzed by the multi-agent pipeline."]
         }
-    except Exception as e:
-        return {
-            "pr_title": f"Security Review: {req.filename}",
-            "executive_overview": "Could not generate full summary. Please review the detailed findings below.",
-            "risk_level": result.get("summary", {}).get("risk_level", "Unknown"),
-            "code_health_score": score if 'score' in locals() else 50,
-            "severity_breakdown": sev if 'sev' in locals() else {"Critical":0, "High":0, "Medium":0, "Low":0},
-            "top_critical_findings": [{"type": f.get("type", "Issue"), "line": f.get("line", 0), "impact": "High risk"} for f in findings[:3] if f.get("severity") in ["Critical", "High"]],
-            "prioritized_fix_list": prioritized if 'prioritized' in locals() else findings,
-            "positive_observations": ["Code structure analyzed successfully."],
-            "estimated_fix_time": "TBD",
-            "markdown_report": "# Code Review Report\nFailed to generate narrative summary. See dashboard for analytics."
-        }
+    
+    return {
+        "pr_title": f"Security Review: {req.filename}",
+        "executive_overview": data.get("executive_overview", "Code review completed."),
+        "risk_level": result.get("summary", {}).get("risk_level", "Unknown"),
+        "code_health_score": score,
+        "severity_breakdown": sev,
+        "top_critical_findings": data.get("top_critical_findings", []),
+        "prioritized_fix_list": prioritized,
+        "detailed_findings": detailed_findings,
+        "positive_observations": data.get("positive_observations", []),
+        "estimated_fix_time": f"{max(1, sev.get('Critical',0)*15 + sev.get('High',0)*10 + sev.get('Medium',0)*5)} mins",
+        "markdown_report": ""
+    }
 
+# ── LYCA CHATBOT — uses Gemini primary, Groq fallback ────────────
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
     fallback = {
         "answer": "I apologize, I could not generate a response. Please try again.",
         "code_example": "",
-        "sources": ["OWASP Top 10"],
+        "sources": [],
         "related_questions": ["What is OWASP?", "How to write secure code?"],
         "confidence": "low"
     }
+    
+    # Build context prompt
+    user_content = ""
+    if req.context_code:
+        user_content += f"The user has submitted this code for review:\n```\n{req.context_code[:1000]}\n```\n\n"
+    if req.context_findings:
+        user_content += f"Analysis found these issues: {json.dumps(req.context_findings[:5])}\n\n"
+    
+    history_text = ""
+    for m in req.conversation_history[-6:]:
+        role = "User" if m.get("role") == "user" else "Lyca"
+        history_text += f"{role}: {m.get('content', '')}\n"
+    
+    if history_text:
+        user_content += f"Previous conversation:\n{history_text}\n"
+    user_content += f"User's question: {req.question}"
+    
+    sys_prompt = """You are 'Lyca', a highly intelligent AI chatbot. You can answer ANY question — coding, general knowledge, math, science, security, career advice, anything.
+For security and coding questions, provide code examples when helpful.
+Respond in this exact JSON format:
+{"answer": "your detailed response", "code_example": "code snippet if relevant, otherwise empty string", "sources": ["relevant sources"], "related_questions": ["follow-up question 1", "follow-up question 2"], "confidence": "high"}
+Return ONLY valid JSON. No markdown fences around the JSON."""
+    
+    full_prompt = sys_prompt + "\n\n" + user_content
+    
+    # Try Gemini first (most reliable)
     try:
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key: return fallback
-        
-        sys_prompt = "You are 'Lyca, Your Chatbot', a highly intelligent AI assistant. You can answer ANY question the user asks (coding, general knowledge, math, etc.), but you are especially good at secure coding. Respond ONLY in valid JSON format exactly matching this schema: {\"answer\": \"your response string\", \"code_example\": \"optional code snippet or empty string\", \"sources\": [\"list of sources or empty\"], \"related_questions\": [\"list of 2 follow up questions\"], \"confidence\": \"high/medium/low\"}."
-        
-        messages = [{"role": "system", "content": sys_prompt}]
-        for m in req.conversation_history[-6:]:
-            messages.append(m)
-            
-        user_content = ""
-        if req.context_code: user_content += f"Code Context:\n{req.context_code}\n\n"
-        if req.context_findings: user_content += f"Findings:\n{json.dumps(req.context_findings)}\n\n"
-        user_content += f"Question: {req.question}"
-        
-        messages.append({"role": "user", "content": user_content})
-        
-        url = "https://api.groq.com/openai/v1/chat/completions"
-        data = {
-            "model": "llama-3.3-70b-versatile",
-            "messages": messages,
-            "temperature": 0.4,
-            "max_tokens": 2048,
-            "response_format": {"type": "json_object"}
-        }
-        
-        req_obj = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        })
-        
-        with urllib.request.urlopen(req_obj) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            text = result["choices"][0]["message"]["content"]
-            try:
-                clean_text = re.sub(r"```(?:json)?\n?","",text.strip()).strip()
-                return json.loads(clean_text)
-            except:
-                fallback["answer"] = text
+        raw = gemini_generate(full_prompt)
+        text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
+        data = json.loads(text)
+        if "answer" in data and len(data["answer"]) > 5:
+            return data
+    except:
+        pass
+    
+    # Try Groq as fallback
+    try:
+        raw = groq_generate(user_content, sys_prompt)
+        if raw:
+            text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
+            data = json.loads(text)
+            if "answer" in data:
+                return data
+            else:
+                fallback["answer"] = raw
                 return fallback
-    except Exception as e:
+    except:
+        pass
+    
+    # Last resort: use Gemini without JSON constraint
+    try:
+        raw = gemini_generate(f"Answer this question helpfully: {req.question}")
+        fallback["answer"] = raw
+        fallback["confidence"] = "medium"
+        return fallback
+    except:
         return fallback
 
+# ── Static Analysis Engine ───────────────────────────────────────
 def static_analysis(code, language):
     findings = []
+    lines = code.splitlines()
     try: tree = ast.parse(code)
     except: return findings
     secrets = ["password","passwd","secret","api_key","token","credential","auth_key"]
@@ -270,28 +302,41 @@ def static_analysis(code, language):
             for t in node.targets:
                 if isinstance(t, ast.Name) and any(k in t.id.lower() for k in secrets):
                     if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
-                        findings.append({"type":"Hardcoded Secret","description":f"Variable '{t.id}' contains a hardcoded credential.","recommendation":"Use environment variables or a secrets manager instead of hardcoding credentials in source code.","line":node.lineno,"severity":"Critical","category":"Security","agent":"Code Analysis Agent"})
+                        val_preview = str(node.value.value)[:20] + "..." if len(str(node.value.value)) > 20 else str(node.value.value)
+                        findings.append({"type":"Hardcoded Secret (OWASP A07:2021)","description":f"Variable '{t.id}' contains a hardcoded credential with value '{val_preview}'. This exposes sensitive data if the source code is leaked or committed to version control.","recommendation":f"Replace the hardcoded value of '{t.id}' with an environment variable: `{t.id} = os.getenv('{t.id.upper()}')`","line":node.lineno,"severity":"Critical","category":"Security","agent":"Code Analysis Agent"})
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            lines = (node.end_lineno or node.lineno) - node.lineno
-            if lines > 50: findings.append({"type":"God Function","description":f"Function '{node.name}' is {lines} lines.","recommendation":"Break into smaller, more modular functions.","line":node.lineno,"severity":"Medium","category":"Code Smell","agent":"Code Analysis Agent"})
-            if len(node.args.args) > 5: findings.append({"type":"Too Many Parameters","description":f"Function '{node.name}' has {len(node.args.args)} parameters.","recommendation":"Use a data class, dictionary, or object to encapsulate parameters.","line":node.lineno,"severity":"Medium","category":"Code Smell","agent":"Code Analysis Agent"})
+            func_lines = (node.end_lineno or node.lineno) - node.lineno
+            if func_lines > 50: findings.append({"type":"God Function (Code Smell)","description":f"Function '{node.name}' spans {func_lines} lines, exceeding the recommended 50-line limit. Large functions are hard to test and maintain.","recommendation":f"Refactor '{node.name}' by extracting logical blocks into smaller helper functions.","line":node.lineno,"severity":"Medium","category":"Code Smell","agent":"Code Analysis Agent"})
+            if len(node.args.args) > 5: findings.append({"type":"Too Many Parameters","description":f"Function '{node.name}' has {len(node.args.args)} parameters. Functions with many parameters are difficult to call correctly and maintain.","recommendation":f"Group parameters into a dataclass or dictionary. Example: `def {node.name}(config: Config):`","line":node.lineno,"severity":"Medium","category":"Code Smell","agent":"Code Analysis Agent"})
         if isinstance(node, ast.ExceptHandler) and node.type is None:
-            findings.append({"type":"Bare Except","description":"Bare except catches all exceptions.","recommendation":"Use 'except Exception as e' to catch only specific exceptions.","line":node.lineno,"severity":"Medium","category":"Error Handling","agent":"Code Analysis Agent"})
-    for i, line in enumerate(code.splitlines(), 1):
-        if any(s in line for s in sources):
-            if any(s in code for s in sql_sinks): findings.append({"type":"SQL Injection (OWASP A03:2021)","description":"Tainted user input reaches SQL sink.","recommendation":"Use parameterized queries or prepared statements. Do not use string concatenation for SQL.","line":i,"severity":"Critical","category":"Security","agent":"Security Vulnerability Agent"})
-            if any(s in code for s in xss_sinks): findings.append({"type":"XSS (OWASP A03:2021)","description":"User input rendered in HTML without escaping.","recommendation":"Use context-aware output encoding (e.g., html.escape()).","line":i,"severity":"High","category":"Security","agent":"Security Vulnerability Agent"})
-            if any(s in code for s in cmd_sinks): findings.append({"type":"Command Injection (OWASP A03:2021)","description":"Tainted input in OS command.","recommendation":"Avoid shell execution. If necessary, use shlex.quote() to sanitize input.","line":i,"severity":"Critical","category":"Security","agent":"Security Vulnerability Agent"})
-        for pat, name, sev, rec in [(r'(?i)(password|secret|api_key|token)\s*=\s*["\'][^"\']{4,}["\']',"Hardcoded Credentials (OWASP A07:2021)","Critical","Use environment variables instead of hardcoding secrets."),(r'(?i)DEBUG\s*=\s*True',"Debug Mode Enabled","High","Set DEBUG=False in production to prevent information disclosure."),(r'(?i)verify\s*=\s*False',"SSL Verification Disabled","High","Enable SSL verification (verify=True) to prevent MitM attacks.")]:
-            if re.search(pat, line): findings.append({"type":name,"description":f"Security issue at line {i}: {line.strip()[:80]}","recommendation":rec,"line":i,"severity":sev,"category":"Security","agent":"Security Vulnerability Agent"})
+            findings.append({"type":"Bare Except (Error Handling)","description":"A bare `except:` clause catches ALL exceptions including SystemExit and KeyboardInterrupt, masking real errors and making debugging extremely difficult.","recommendation":"Use `except Exception as e:` to catch only standard exceptions, and log the error: `logging.error(f'Error: {e}')`","line":node.lineno,"severity":"Medium","category":"Error Handling","agent":"Code Analysis Agent"})
+    # Detect string concatenation in SQL
+    for i, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if 'cursor.execute' in stripped or 'db.execute' in stripped or 'connection.execute' in stripped:
+            if '+' in stripped or 'f"' in stripped or "f'" in stripped or '.format(' in stripped:
+                findings.append({"type":"SQL Injection (OWASP A03:2021)","description":f"Line {i}: SQL query built using string concatenation/formatting: `{stripped[:80]}`. An attacker can inject malicious SQL to read, modify, or delete database data.","recommendation":"Use parameterized queries: `cursor.execute('SELECT * FROM users WHERE name=?', (username,))`","line":i,"severity":"Critical","category":"Security","agent":"Security Vulnerability Agent"})
+        if 'os.system' in stripped or 'subprocess.call' in stripped:
+            if '+' in stripped or 'f"' in stripped or "f'" in stripped:
+                findings.append({"type":"Command Injection (OWASP A03:2021)","description":f"Line {i}: OS command built with user-controlled input: `{stripped[:80]}`. An attacker can execute arbitrary system commands.","recommendation":"Use `subprocess.run()` with a list of arguments instead of shell strings: `subprocess.run(['ping', host])`","line":i,"severity":"Critical","category":"Security","agent":"Security Vulnerability Agent"})
+        if 'eval(' in stripped or 'exec(' in stripped:
+            findings.append({"type":"Dangerous Function (OWASP A03:2021)","description":f"Line {i}: Use of `eval()`/`exec()` detected: `{stripped[:60]}`. These functions execute arbitrary code and are a critical injection risk.","recommendation":"Replace eval/exec with safe alternatives like `ast.literal_eval()` for data parsing or explicit logic.","line":i,"severity":"Critical","category":"Security","agent":"Security Vulnerability Agent"})
+        for pat, name, sev, rec in [(r'(?i)(password|secret|api_key|token)\s*=\s*["\'][^"\']{4,}["\']',"Hardcoded Credentials (OWASP A07:2021)","Critical","Use environment variables instead of hardcoding secrets. Example: `os.getenv('SECRET_KEY')`"),(r'(?i)DEBUG\s*=\s*True',"Debug Mode Enabled","High","Set DEBUG=False in production to prevent information disclosure and stack trace leaks."),(r'(?i)verify\s*=\s*False',"SSL Verification Disabled (OWASP A07:2021)","High","Enable SSL verification (verify=True) to prevent Man-in-the-Middle attacks.")]:
+            if re.search(pat, line): findings.append({"type":name,"description":f"Line {i}: `{stripped[:80]}` — This is a security misconfiguration that could be exploited in production.","recommendation":rec,"line":i,"severity":sev,"category":"Security","agent":"Security Vulnerability Agent"})
     return findings
 
 def gemini_analysis(code, language):
     try:
-        prompt = f"""Analyze this {language} code for bugs and security issues.
-Return ONLY a JSON array. Each item: {{"type":"...","description":"...","recommendation":"Provide specific fix recommendations and corrected code examples...","line":0,"severity":"Critical/High/Medium/Low","category":"Security/Code Quality","agent":"Gemini Analysis Agent"}}
-Return [] if no issues. Raw JSON only.
-````{language}
+        prompt = f"""Analyze this {language} code for bugs, security vulnerabilities, and code quality issues.
+For each issue found, provide:
+- A specific, descriptive type name (include OWASP ID if applicable)
+- A detailed description explaining WHY this is dangerous with the specific code context
+- A concrete recommendation with corrected code example
+- The exact line number
+
+Return ONLY a JSON array. Each item must have: {{"type":"...","description":"Detailed explanation of the vulnerability and its impact...","recommendation":"Specific fix with code example...","line":0,"severity":"Critical/High/Medium/Low","category":"Security/Code Quality/Error Handling","agent":"Gemini Analysis Agent"}}
+Return [] if no issues. Raw JSON only, no markdown fences.
+```{language}
 {code[:2000]}
 ```"""
         response = client.models.generate_content(

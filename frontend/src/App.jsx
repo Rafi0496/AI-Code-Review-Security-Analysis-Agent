@@ -653,8 +653,31 @@ function InfoCard({ icon, title, color, children }) {
   )
 }
 
-// ── PR Summary PDF Generator ────────────────────────────────────
+// ── PR Summary PDF Generator (Full Analytics) ──────────────────
 function downloadPDF(prData) {
+  // Build detailed findings table rows
+  const findingsRows = (prData.detailed_findings || prData.prioritized_fix_list || []).map((f, i) => {
+    if (typeof f === 'string') return `<tr><td>${i+1}</td><td>${f}</td><td>—</td><td>—</td><td>—</td></tr>`
+    return `<tr>
+      <td>${i+1}</td>
+      <td><strong>${f.type || 'Issue'}</strong></td>
+      <td style="text-align:center">${f.severity || '—'}</td>
+      <td style="text-align:center">${f.line || '—'}</td>
+      <td>${f.description || '—'}</td>
+    </tr>`
+  }).join('')
+
+  const recommendationRows = (prData.detailed_findings || prData.prioritized_fix_list || []).map((f, i) => {
+    if (typeof f === 'string') return ''
+    if (!f.recommendation) return ''
+    return `<tr><td><strong>${f.type || 'Issue'}</strong> (Line ${f.line || '?'})</td><td>${f.recommendation}</td></tr>`
+  }).filter(Boolean).join('')
+
+  const criticalList = (prData.top_critical_findings || []).map(f => {
+    if (typeof f === 'string') return `<li>${f}</li>`
+    return `<li><strong>${f.type || 'Issue'}</strong> (Line ${f.line || '?'}): ${f.impact || f.description || '—'}</li>`
+  }).join('')
+
   const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Code Review Report</title>
@@ -664,67 +687,63 @@ function downloadPDF(prData) {
   body { font-family: 'Inter', sans-serif; color: #1a1a1a; padding: 48px; line-height: 1.7; font-size: 13px; }
   h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; border-bottom: 2px solid #1a1a1a; padding-bottom: 12px; }
   h2 { font-size: 16px; font-weight: 700; margin: 28px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 6px; }
-  h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
   p { margin-bottom: 10px; }
   .meta { font-size: 12px; color: #555; margin-bottom: 24px; }
-  .score-row { display: flex; align-items: center; gap: 16px; margin: 12px 0 20px; }
-  .score-badge { font-size: 28px; font-weight: 700; }
-  .score-label { font-size: 12px; color: #555; }
+  .score-row { display: flex; gap: 32px; margin: 16px 0 24px; padding: 16px; background: #f8f8f8; border-radius: 6px; }
+  .score-item { display: flex; flex-direction: column; }
+  .score-val { font-size: 28px; font-weight: 700; color: #111; }
+  .score-lbl { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
   table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-  th, td { text-align: left; padding: 8px 12px; border: 1px solid #ddd; font-size: 12px; }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid #ddd; font-size: 12px; vertical-align: top; }
   th { background: #f5f5f5; font-weight: 700; }
+  .sev-c { color: #dc2626; font-weight: 700; }
+  .sev-h { color: #ea580c; font-weight: 700; }
+  .sev-m { color: #ca8a04; font-weight: 700; }
+  .sev-l { color: #16a34a; font-weight: 700; }
   ol, ul { margin: 8px 0 8px 24px; }
-  li { margin-bottom: 4px; }
+  li { margin-bottom: 6px; }
   .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ccc; font-size: 11px; color: #888; }
-  code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
-  pre { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #f8f8f8; border: 1px solid #e0e0e0; padding: 12px; border-radius: 4px; margin: 8px 0; white-space: pre-wrap; }
-  @media print { body { padding: 24px; } }
+  @media print { body { padding: 24px; } .score-row { background: #f8f8f8 !important; -webkit-print-color-adjust: exact; } }
 </style>
 </head><body>
 <h1>${prData.pr_title || 'Code Review Report'}</h1>
-<div class="meta">Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+<div class="meta">Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} &bull; Smart Code Inspection Platform</div>
 
-<h2>Executive Overview</h2>
+<h2>1. Executive Overview</h2>
 <p>${prData.executive_overview || 'No overview available.'}</p>
 
 <div class="score-row">
-  <div>
-    <div class="score-badge">${prData.code_health_score ?? '—'} / 100</div>
-    <div class="score-label">Code Health Score</div>
-  </div>
-  <div>
-    <div class="score-badge">${prData.risk_level || '—'}</div>
-    <div class="score-label">Risk Level</div>
-  </div>
-  <div>
-    <div class="score-badge">${prData.estimated_fix_time || '—'}</div>
-    <div class="score-label">Estimated Fix Time</div>
-  </div>
+  <div class="score-item"><span class="score-val">${prData.code_health_score ?? '—'}/100</span><span class="score-lbl">Code Health Score</span></div>
+  <div class="score-item"><span class="score-val">${prData.risk_level || '—'}</span><span class="score-lbl">Risk Level</span></div>
+  <div class="score-item"><span class="score-val">${prData.estimated_fix_time || '—'}</span><span class="score-lbl">Est. Fix Time</span></div>
 </div>
 
-<h2>Severity Breakdown</h2>
+<h2>2. Severity Breakdown</h2>
 <table>
-  <tr><th>Severity</th><th>Count</th></tr>
-  <tr><td>Critical</td><td>${prData.severity_breakdown?.Critical ?? 0}</td></tr>
-  <tr><td>High</td><td>${prData.severity_breakdown?.High ?? 0}</td></tr>
-  <tr><td>Medium</td><td>${prData.severity_breakdown?.Medium ?? 0}</td></tr>
-  <tr><td>Low</td><td>${prData.severity_breakdown?.Low ?? 0}</td></tr>
+  <tr><th>Severity</th><th>Count</th><th>Impact</th></tr>
+  <tr><td class="sev-c">Critical</td><td>${prData.severity_breakdown?.Critical ?? 0}</td><td>Immediate exploitation risk — fix before merge</td></tr>
+  <tr><td class="sev-h">High</td><td>${prData.severity_breakdown?.High ?? 0}</td><td>Significant risk — fix within 24 hours</td></tr>
+  <tr><td class="sev-m">Medium</td><td>${prData.severity_breakdown?.Medium ?? 0}</td><td>Code quality concern — fix within sprint</td></tr>
+  <tr><td class="sev-l">Low</td><td>${prData.severity_breakdown?.Low ?? 0}</td><td>Minor improvement — fix when convenient</td></tr>
 </table>
 
-${prData.top_critical_findings?.length > 0 ? `
-<h2>Critical Findings</h2>
+${criticalList ? `<h2>3. Critical Findings & Impact</h2><ul>${criticalList}</ul>` : ''}
+
+<h2>4. Detailed Findings</h2>
 <table>
-  <tr><th>Finding</th><th>Line</th><th>Impact</th></tr>
-  ${prData.top_critical_findings.map(f => `<tr><td>${f.type || '—'}</td><td>${f.line || '—'}</td><td>${f.impact || '—'}</td></tr>`).join('')}
+  <tr><th>#</th><th>Issue Type</th><th>Severity</th><th>Line</th><th>Description</th></tr>
+  ${findingsRows || '<tr><td colspan="5">No detailed findings available</td></tr>'}
+</table>
+
+${recommendationRows ? `
+<h2>5. Remediation Recommendations</h2>
+<table>
+  <tr><th>Issue</th><th>Recommended Fix</th></tr>
+  ${recommendationRows}
 </table>` : ''}
 
-<h2>Prioritized Fix List</h2>
-<ol>
-${(prData.prioritized_fix_list || []).map(f => `  <li>${f}</li>`).join('\n')}
-</ol>
-
 ${prData.positive_observations?.length > 0 ? `
-<h2>Positive Observations</h2>
+<h2>6. Positive Observations</h2>
 <ul>
 ${prData.positive_observations.map(o => `  <li>${o}</li>`).join('\n')}
 </ul>` : ''}
@@ -732,6 +751,7 @@ ${prData.positive_observations.map(o => `  <li>${o}</li>`).join('\n')}
 <div class="footer">
   This report was automatically generated by the Smart Code Inspection Platform.
   All findings are based on static analysis and AI-powered vulnerability detection.
+  &copy; ${new Date().getFullYear()} AI Code Review & Security Analysis Agent — Shaik Rafi
 </div>
 </body></html>`
 
@@ -896,30 +916,46 @@ function ResultsTab({ result, onNewAnalysis }) {
           <div style={{ marginTop: '0.75rem', color: 'var(--text-3)', fontSize: '0.85rem' }}>Generating PR Summary Report...</div>
         </div>
       )}
-      
+
       {showPreview && prReport && (
         <div className="pr-preview-modal glass">
           <div className="pr-preview-header">
-            <h3>Report Preview</h3>
-            <button className="run-btn" onClick={() => downloadPDF(prReport)} style={{ minWidth: 'auto', padding: '0.5rem 1rem' }}>
-              <Icon.Download /> Download Final PDF
+            <h3>📋 Report Preview</h3>
+            <button className="run-btn" onClick={() => downloadPDF(prReport)} style={{ minWidth: 'auto', padding: '0.5rem 1.2rem' }}>
+              <span className="run-btn-idle"><Icon.Download /> Download Final PDF</span>
             </button>
           </div>
           <div className="pr-preview-content">
             <h1>{prReport.pr_title || 'Code Review Report'}</h1>
+            <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '1.5rem' }}>Generated on {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
             <h2>Executive Overview</h2>
             <p>{prReport.executive_overview}</p>
             <div className="pr-preview-stats">
-              <div><strong>{prReport.code_health_score ?? healthScore}/100</strong> Code Health Score</div>
+              <div><strong>{prReport.code_health_score ?? healthScore}/100</strong> Code Health</div>
               <div><strong>{prReport.risk_level || 'Unknown'}</strong> Risk Level</div>
-              <div><strong>{prReport.estimated_fix_time || 'TBD'}</strong> Estimated Fix Time</div>
+              <div><strong>{prReport.estimated_fix_time || 'TBD'}</strong> Fix Time</div>
             </div>
-            <h2>Prioritized Fix List</h2>
-            <ol>
-              {(prReport.prioritized_fix_list || []).map((f, idx) => (
-                 typeof f === 'string' ? <li key={idx}>{f}</li> : <li key={idx}><strong>{f.type}</strong> at line {f.line}</li>
-              ))}
-            </ol>
+            <h2>Severity Breakdown</h2>
+            <table style={{ width: '100%', borderCollapse: 'collapse', margin: '0.5rem 0 1rem' }}>
+              <thead><tr style={{ background: '#f5f5f5' }}><th style={{ padding: '8px 12px', border: '1px solid #ddd', textAlign: 'left', fontSize: '0.75rem' }}>Severity</th><th style={{ padding: '8px 12px', border: '1px solid #ddd', textAlign: 'center', fontSize: '0.75rem' }}>Count</th></tr></thead>
+              <tbody>
+                <tr><td style={{ padding: '6px 12px', border: '1px solid #eee', color: '#dc2626', fontWeight: 700 }}>Critical</td><td style={{ padding: '6px 12px', border: '1px solid #eee', textAlign: 'center' }}>{prReport.severity_breakdown?.Critical ?? 0}</td></tr>
+                <tr><td style={{ padding: '6px 12px', border: '1px solid #eee', color: '#ea580c', fontWeight: 700 }}>High</td><td style={{ padding: '6px 12px', border: '1px solid #eee', textAlign: 'center' }}>{prReport.severity_breakdown?.High ?? 0}</td></tr>
+                <tr><td style={{ padding: '6px 12px', border: '1px solid #eee', color: '#ca8a04', fontWeight: 700 }}>Medium</td><td style={{ padding: '6px 12px', border: '1px solid #eee', textAlign: 'center' }}>{prReport.severity_breakdown?.Medium ?? 0}</td></tr>
+                <tr><td style={{ padding: '6px 12px', border: '1px solid #eee', color: '#16a34a', fontWeight: 700 }}>Low</td><td style={{ padding: '6px 12px', border: '1px solid #eee', textAlign: 'center' }}>{prReport.severity_breakdown?.Low ?? 0}</td></tr>
+              </tbody>
+            </table>
+            <h2>Detailed Findings & Recommendations</h2>
+            {(prReport.detailed_findings || prReport.prioritized_fix_list || []).map((f, idx) => (
+              <div key={idx} style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fafafa', border: '1px solid #eee', borderRadius: '6px' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111' }}>{idx + 1}. {typeof f === 'string' ? f : f.type}</div>
+                {typeof f !== 'string' && <>
+                  <div style={{ fontSize: '0.75rem', color: '#666', margin: '0.3rem 0' }}>Severity: <strong style={{ color: f.severity === 'Critical' ? '#dc2626' : f.severity === 'High' ? '#ea580c' : '#ca8a04' }}>{f.severity}</strong> · Line {f.line}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#444', margin: '0.3rem 0' }}>{f.description}</div>
+                  {f.recommendation && <div style={{ fontSize: '0.8rem', color: '#166534', background: '#f0fdf4', padding: '0.5rem', borderRadius: '4px', marginTop: '0.3rem' }}>💡 {f.recommendation}</div>}
+                </>}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -1026,9 +1062,9 @@ function SecurityWidget({ result }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([{
     role: 'bot',
-    text: 'Hello! I am your secure coding assistant. Ask me about security vulnerabilities, OWASP standards, or best practices.',
+    text: 'Hi there! I\'m Lyca, your AI assistant. I can answer any question — security, coding, general knowledge, math, or anything else. Try asking me something!',
     sources: [],
-    relatedQuestions: [],
+    relatedQuestions: ['How to prevent SQL injection?', 'Explain OWASP Top 10'],
     codeExample: '',
   }])
   const [input, setInput] = useState('')
@@ -1155,7 +1191,7 @@ function SecurityWidget({ result }) {
                 style={{ minHeight: '38px', padding: '0.55rem 0.8rem', fontSize: '0.8rem' }}
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                placeholder="Ask about security..."
+                placeholder="Ask Lyca anything..."
                 rows={1}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
