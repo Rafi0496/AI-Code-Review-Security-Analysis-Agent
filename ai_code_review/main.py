@@ -108,6 +108,7 @@ def groq_generate(prompt: str, system_prompt: str = "") -> str | None:
         "messages": messages,
         "temperature": 0.3,
         "max_tokens": 2048,
+        "response_format": {"type": "json_object"}
     }
     
     req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
@@ -139,8 +140,11 @@ async def remediate(req: RemediateRequest):
         prompt = f"Finding: {json.dumps(req.finding)}\nLanguage: {req.language}\nCode:\n{req.code}\nProvide the requested JSON remediation."
         res = groq_generate(prompt, sys_prompt)
         if not res: return fallback
-        text = re.sub(r"```(?:json)?\n?","",res.strip()).strip()
-        return json.loads(text)
+        try:
+            text = re.sub(r"```(?:json)?\n?","",res.strip()).strip()
+            return json.loads(text)
+        except:
+            return fallback
     except:
         return fallback
 
@@ -188,16 +192,16 @@ Score: {score}'''
         }
     except Exception as e:
         return {
-            "pr_title": "Security Review",
-            "executive_overview": "Could not generate full summary.",
-            "risk_level": "Medium",
-            "code_health_score": 50,
-            "severity_breakdown": {"Critical":0, "High":0, "Medium":0, "Low":0},
-            "top_critical_findings": [],
-            "prioritized_fix_list": [],
-            "positive_observations": [],
+            "pr_title": f"Security Review: {req.filename}",
+            "executive_overview": "Could not generate full summary. Please review the detailed findings below.",
+            "risk_level": result.get("summary", {}).get("risk_level", "Unknown"),
+            "code_health_score": score if 'score' in locals() else 50,
+            "severity_breakdown": sev if 'sev' in locals() else {"Critical":0, "High":0, "Medium":0, "Low":0},
+            "top_critical_findings": [{"type": f.get("type", "Issue"), "line": f.get("line", 0), "impact": "High risk"} for f in findings[:3] if f.get("severity") in ["Critical", "High"]],
+            "prioritized_fix_list": prioritized if 'prioritized' in locals() else findings,
+            "positive_observations": ["Code structure analyzed successfully."],
             "estimated_fix_time": "TBD",
-            "markdown_report": "# Code Review Report\nFailed to generate."
+            "markdown_report": "# Code Review Report\nFailed to generate narrative summary. See dashboard for analytics."
         }
 
 @app.post("/chat")
@@ -213,7 +217,7 @@ async def chat_endpoint(req: ChatRequest):
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key: return fallback
         
-        sys_prompt = "You are a senior secure coding expert grounded in OWASP standards. Respond ONLY in valid JSON with keys: answer, code_example, sources (list of strings), related_questions (list of strings), confidence."
+        sys_prompt = "You are 'Lyca, Your Chatbot', a highly intelligent AI assistant. You can answer ANY question the user asks (coding, general knowledge, math, etc.), but you are especially good at secure coding. Respond ONLY in valid JSON format exactly matching this schema: {\"answer\": \"your response string\", \"code_example\": \"optional code snippet or empty string\", \"sources\": [\"list of sources or empty\"], \"related_questions\": [\"list of 2 follow up questions\"], \"confidence\": \"high/medium/low\"}."
         
         messages = [{"role": "system", "content": sys_prompt}]
         for m in req.conversation_history[-6:]:
@@ -230,8 +234,9 @@ async def chat_endpoint(req: ChatRequest):
         data = {
             "model": "llama-3.3-70b-versatile",
             "messages": messages,
-            "temperature": 0.3,
+            "temperature": 0.4,
             "max_tokens": 2048,
+            "response_format": {"type": "json_object"}
         }
         
         req_obj = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={

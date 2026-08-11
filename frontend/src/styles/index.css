@@ -930,6 +930,51 @@ textarea:focus-visible, input:focus-visible { outline: none; }
 
 /* ── Milestone 3 New Styles ──────────────────────────────── */
 
+/* PR Preview Modal (Glassmorphism + Minimalism) */
+.pr-preview-modal {
+  margin-top: 1.5rem;
+  border-radius: var(--r-xl);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  animation: widget-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.pr-preview-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(124, 58, 237, 0.1);
+}
+.pr-preview-header h3 { font-size: 1.1rem; font-weight: 700; color: #fff; margin: 0; letter-spacing: 0.02em; }
+.pr-preview-content {
+  padding: 2rem 1.5rem;
+  background: #fdfdfd;
+  color: #1a1a1a;
+  max-height: 500px;
+  overflow-y: auto;
+  font-family: 'Inter', sans-serif;
+  border-bottom-left-radius: var(--r-xl); border-bottom-right-radius: var(--r-xl);
+}
+.pr-preview-content h1 { font-size: 1.5rem; font-weight: 800; border-bottom: 2px solid #1a1a1a; padding-bottom: 0.5rem; margin-bottom: 1.5rem; color: #111; }
+.pr-preview-content h2 { font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid #ddd; padding-bottom: 0.4rem; margin: 1.5rem 0 1rem; color: #333; }
+.pr-preview-content p { font-size: 0.9rem; line-height: 1.6; color: #444; }
+.pr-preview-stats {
+  display: flex; gap: 2rem; margin: 1.5rem 0; padding: 1rem; background: #f5f5f5; border-radius: 8px; border: 1px solid #eaeaea;
+}
+.pr-preview-stats div { display: flex; flex-direction: column; font-size: 0.75rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+.pr-preview-stats strong { font-size: 1.5rem; font-weight: 800; color: #111; margin-bottom: 0.2rem; }
+.pr-preview-content ol { margin-left: 1.5rem; padding: 0; }
+.pr-preview-content li { font-size: 0.85rem; color: #444; margin-bottom: 0.5rem; line-height: 1.5; }
+
+/* Side-by-side buttons fix */
+.risk-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}/* ── Milestone 3 New Styles ──────────────────────────────── */
+
 /* Code Health Score Gauge */
 .dashboard-row {
   display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: stretch; margin-bottom: 1.5rem;

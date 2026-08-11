@@ -748,6 +748,7 @@ function ResultsTab({ result, onNewAnalysis }) {
   const [filter, setFilter] = useState('All')
   const [prReport, setPrReport] = useState(null)
   const [prLoading, setPrLoading] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   // Auto-fetch PR summary when result loads
   useEffect(() => {
@@ -882,21 +883,48 @@ function ResultsTab({ result, onNewAnalysis }) {
             <Icon.Download /> Export Markdown
           </button>
           {prReport && (
-            <button className="export-btn" onClick={() => downloadPDF(prReport)} style={{ borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', color: 'var(--violet-l)' }}>
-              <Icon.FileText /> Download PDF Report
+            <button className="export-btn" onClick={() => setShowPreview(p => !p)} style={{ borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', color: 'var(--violet-l)' }}>
+              <Icon.FileText /> {showPreview ? 'Close Preview' : 'Preview Report'}
             </button>
           )}
         </div>
       </div>
 
-      {/* PR Summary Section */}
       {prLoading && (
         <div className="pr-report-card glass" style={{ textAlign: 'center', padding: '2rem' }}>
           <span className="spin" style={{ width: 20, height: 20, borderWidth: 2.5 }} />
           <div style={{ marginTop: '0.75rem', color: 'var(--text-3)', fontSize: '0.85rem' }}>Generating PR Summary Report...</div>
         </div>
       )}
-      {prReport && (
+      
+      {showPreview && prReport && (
+        <div className="pr-preview-modal glass">
+          <div className="pr-preview-header">
+            <h3>Report Preview</h3>
+            <button className="run-btn" onClick={() => downloadPDF(prReport)} style={{ minWidth: 'auto', padding: '0.5rem 1rem' }}>
+              <Icon.Download /> Download Final PDF
+            </button>
+          </div>
+          <div className="pr-preview-content">
+            <h1>{prReport.pr_title || 'Code Review Report'}</h1>
+            <h2>Executive Overview</h2>
+            <p>{prReport.executive_overview}</p>
+            <div className="pr-preview-stats">
+              <div><strong>{prReport.code_health_score ?? healthScore}/100</strong> Code Health Score</div>
+              <div><strong>{prReport.risk_level || 'Unknown'}</strong> Risk Level</div>
+              <div><strong>{prReport.estimated_fix_time || 'TBD'}</strong> Estimated Fix Time</div>
+            </div>
+            <h2>Prioritized Fix List</h2>
+            <ol>
+              {(prReport.prioritized_fix_list || []).map((f, idx) => (
+                 typeof f === 'string' ? <li key={idx}>{f}</li> : <li key={idx}><strong>{f.type}</strong> at line {f.line}</li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      )}
+
+      {prReport && !showPreview && (
         <div className="pr-report-card glass">
           <div className="pr-report-header">
             <Icon.GitMerge />
@@ -913,7 +941,7 @@ function ResultsTab({ result, onNewAnalysis }) {
               <div className="pr-fix-heading">Prioritized Fix List</div>
               <ol className="pr-fix-list">
                 {prReport.prioritized_fix_list.map((fix, i) => (
-                  <li key={i} className="pr-fix-item">{fix}</li>
+                  <li key={i} className="pr-fix-item">{typeof fix === 'string' ? fix : `${fix.type} (Line ${fix.line})`}</li>
                 ))}
               </ol>
             </div>
@@ -1060,7 +1088,7 @@ function SecurityWidget({ result }) {
         <div className="security-widget-panel glass">
           <div className="security-widget-header">
             <div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>Security Agent</div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>Lyca, Your Chatbot</div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Powered by Groq AI</div>
             </div>
             <button className="security-widget-close" onClick={() => setOpen(false)}>
