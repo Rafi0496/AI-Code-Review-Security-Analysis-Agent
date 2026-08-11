@@ -135,6 +135,21 @@ const Icon = {
       <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
     </svg>
   ),
+  Wrench: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+    </svg>
+  ),
+  Copy: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </svg>
+  ),
+  Activity: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
+  ),
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -144,7 +159,6 @@ const delay = (ms) => new Promise(r => setTimeout(r, ms))
 
 const detectLanguage = (code) => {
   if (!code) return 'python'
-  // Auto language detection heuristic
   if (/public\s+class\s+/.test(code) || /import\s+java\./.test(code) || /System\.out\.println/.test(code)) {
     return 'java'
   }
@@ -204,10 +218,64 @@ function Toast({ msg, type, onClose }) {
   )
 }
 
-// ── Finding card ─────────────────────────────────────────────────
-function FindingCard({ finding, idx }) {
+// ── Code Health Score Gauge ─────────────────────────────────────
+function HealthGauge({ score }) {
+  const radius = 54
+  const circumference = 2 * Math.PI * radius
+  const [animatedScore, setAnimatedScore] = useState(0)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimatedScore(score), 100)
+    return () => clearTimeout(timer)
+  }, [score])
+
+  const offset = circumference - (animatedScore / 100) * circumference
+  const color = score <= 40 ? 'var(--sev-c)' : score <= 70 ? 'var(--amber)' : 'var(--emerald)'
+  const label = score <= 40 ? 'Poor' : score <= 70 ? 'Fair' : 'Good'
+
+  return (
+    <div className="health-gauge">
+      <svg width="140" height="140" viewBox="0 0 140 140">
+        <circle cx="70" cy="70" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+        <circle
+          cx="70" cy="70" r={radius} fill="none"
+          stroke={color} strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform="rotate(-90 70 70)"
+          style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s ease' }}
+        />
+      </svg>
+      <div className="health-gauge-center">
+        <div className="health-gauge-score" style={{ color }}>{animatedScore}</div>
+        <div className="health-gauge-label">{label}</div>
+      </div>
+      <div className="health-gauge-title">Code Health Score</div>
+    </div>
+  )
+}
+
+// ── Finding card with Remediation ────────────────────────────────
+function FindingCard({ finding, idx, code, language }) {
   const [open, setOpen] = useState(false)
+  const [fix, setFix] = useState(null)
+  const [fixLoading, setFixLoading] = useState(false)
   const cls = sevCls(finding.severity)
+
+  const loadFix = async (e) => {
+    e.stopPropagation()
+    if (fix || fixLoading) return
+    setFixLoading(true)
+    try {
+      const data = await api.remediate(finding, code, language)
+      setFix(data)
+    } catch (err) {
+      setFix({ fix_summary: 'Could not load fix: ' + err.message, before_code: '', after_code: '', best_practice: '', owasp_reference: '' })
+    } finally {
+      setFixLoading(false)
+    }
+  }
 
   return (
     <div
@@ -246,6 +314,47 @@ function FindingCard({ finding, idx }) {
             <div className="finding-rec">
               <span className="finding-rec-label">Recommendation</span>
               {finding.recommendation}
+            </div>
+          )}
+
+          {/* Remediation Agent Section */}
+          {!fix && (
+            <button className="view-fix-btn" onClick={loadFix} disabled={fixLoading}>
+              {fixLoading ? (
+                <><span className="spin" style={{ width: 12, height: 12, borderWidth: 2 }} /> Loading Fix...</>
+              ) : (
+                <><Icon.Wrench /> View Fix</>
+              )}
+            </button>
+          )}
+
+          {fix && (
+            <div className="remediation-card">
+              <div className="remediation-header">
+                <Icon.Wrench /> Remediation Agent
+                {fix.owasp_reference && <span className="chip chip-cat" style={{ marginLeft: 'auto' }}>{fix.owasp_reference}</span>}
+              </div>
+              <div className="remediation-summary">{fix.fix_summary}</div>
+
+              {(fix.before_code || fix.after_code) && (
+                <div className="diff-container">
+                  <div className="diff-panel diff-before">
+                    <div className="diff-label">Before (Vulnerable)</div>
+                    <pre className="diff-code">{fix.before_code || '—'}</pre>
+                  </div>
+                  <div className="diff-panel diff-after">
+                    <div className="diff-label">After (Fixed)</div>
+                    <pre className="diff-code">{fix.after_code || '—'}</pre>
+                  </div>
+                </div>
+              )}
+
+              {fix.best_practice && (
+                <div className="remediation-practice">
+                  <span className="remediation-practice-label">Best Practice</span>
+                  {fix.best_practice}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -324,6 +433,11 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
 
       setProgress('merging')
       await delay(300)
+
+      // Attach the submitted code and language for downstream use
+      result._submittedCode = mode === 'file' ? '' : code
+      result._submittedLanguage = result.submission?.language || detectLanguage(code)
+
       onResult(result)
       onTabSwitch('results')
     } catch (err) {
@@ -347,7 +461,6 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
   }
 
   const canRun = mode === 'paste' ? code.trim().length > 0 : !!file
-  const autoLang = detectLanguage(code)
 
   return (
     <div className="analyze-grid">
@@ -376,7 +489,7 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
 
         {mode === 'paste' ? (
           <>
-            {/* Toolbar row (removed lang toggle, kept clear/sample) */}
+            {/* Toolbar row */}
             <div className="toolbar-row" style={{ justifyContent: 'flex-end' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="toolbar-btn" onClick={loadSample} title="Load sample vulnerable code">
@@ -494,21 +607,13 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
           <AgentProgress progress={progress} />
         ) : (
           <>
-            <InfoCard
-              icon={<Icon.Cpu />}
-              title="Multi-Agent Pipeline"
-              color="violet"
-            >
+            <InfoCard icon={<Icon.Cpu />} title="Multi-Agent Pipeline" color="violet">
               Two specialized AI agents run in parallel —{' '}
               <strong style={{ color: 'var(--violet-l)' }}>Code Analysis Agent</strong> and{' '}
               <strong style={{ color: 'var(--cyan-l)' }}>Security Vulnerability Agent</strong> — then
               merged by the Orchestrator.
             </InfoCard>
-            <InfoCard
-              icon={<Icon.Shield />}
-              title="OWASP Coverage"
-              color="cyan"
-            >
+            <InfoCard icon={<Icon.Shield />} title="OWASP Coverage" color="cyan">
               <div className="tag-wrap" style={{ marginTop: '0.5rem' }}>
                 {['SQL Injection', 'XSS', 'CSRF', 'Command Injection',
                   'Path Traversal', 'Hardcoded Secrets', 'Broken Access'].map(t => (
@@ -516,11 +621,7 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
                 ))}
               </div>
             </InfoCard>
-            <InfoCard
-              icon={<Icon.Search />}
-              title="Detection Layers"
-              color="emerald"
-            >
+            <InfoCard icon={<Icon.Search />} title="Detection Layers" color="emerald">
               <ul className="detection-list">
                 {[
                   ['AST + Radon', 'Static complexity analysis'],
@@ -552,9 +653,122 @@ function InfoCard({ icon, title, color, children }) {
   )
 }
 
+// ── PR Summary PDF Generator ────────────────────────────────────
+function downloadPDF(prData) {
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Code Review Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; color: #1a1a1a; padding: 48px; line-height: 1.7; font-size: 13px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; border-bottom: 2px solid #1a1a1a; padding-bottom: 12px; }
+  h2 { font-size: 16px; font-weight: 700; margin: 28px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 6px; }
+  h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
+  p { margin-bottom: 10px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 24px; }
+  .score-row { display: flex; align-items: center; gap: 16px; margin: 12px 0 20px; }
+  .score-badge { font-size: 28px; font-weight: 700; }
+  .score-label { font-size: 12px; color: #555; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid #ddd; font-size: 12px; }
+  th { background: #f5f5f5; font-weight: 700; }
+  ol, ul { margin: 8px 0 8px 24px; }
+  li { margin-bottom: 4px; }
+  .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ccc; font-size: 11px; color: #888; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
+  pre { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #f8f8f8; border: 1px solid #e0e0e0; padding: 12px; border-radius: 4px; margin: 8px 0; white-space: pre-wrap; }
+  @media print { body { padding: 24px; } }
+</style>
+</head><body>
+<h1>${prData.pr_title || 'Code Review Report'}</h1>
+<div class="meta">Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+
+<h2>Executive Overview</h2>
+<p>${prData.executive_overview || 'No overview available.'}</p>
+
+<div class="score-row">
+  <div>
+    <div class="score-badge">${prData.code_health_score ?? '—'} / 100</div>
+    <div class="score-label">Code Health Score</div>
+  </div>
+  <div>
+    <div class="score-badge">${prData.risk_level || '—'}</div>
+    <div class="score-label">Risk Level</div>
+  </div>
+  <div>
+    <div class="score-badge">${prData.estimated_fix_time || '—'}</div>
+    <div class="score-label">Estimated Fix Time</div>
+  </div>
+</div>
+
+<h2>Severity Breakdown</h2>
+<table>
+  <tr><th>Severity</th><th>Count</th></tr>
+  <tr><td>Critical</td><td>${prData.severity_breakdown?.Critical ?? 0}</td></tr>
+  <tr><td>High</td><td>${prData.severity_breakdown?.High ?? 0}</td></tr>
+  <tr><td>Medium</td><td>${prData.severity_breakdown?.Medium ?? 0}</td></tr>
+  <tr><td>Low</td><td>${prData.severity_breakdown?.Low ?? 0}</td></tr>
+</table>
+
+${prData.top_critical_findings?.length > 0 ? `
+<h2>Critical Findings</h2>
+<table>
+  <tr><th>Finding</th><th>Line</th><th>Impact</th></tr>
+  ${prData.top_critical_findings.map(f => `<tr><td>${f.type || '—'}</td><td>${f.line || '—'}</td><td>${f.impact || '—'}</td></tr>`).join('')}
+</table>` : ''}
+
+<h2>Prioritized Fix List</h2>
+<ol>
+${(prData.prioritized_fix_list || []).map(f => `  <li>${f}</li>`).join('\n')}
+</ol>
+
+${prData.positive_observations?.length > 0 ? `
+<h2>Positive Observations</h2>
+<ul>
+${prData.positive_observations.map(o => `  <li>${o}</li>`).join('\n')}
+</ul>` : ''}
+
+<div class="footer">
+  This report was automatically generated by the Smart Code Inspection Platform.
+  All findings are based on static analysis and AI-powered vulnerability detection.
+</div>
+</body></html>`
+
+  const printWindow = window.open('', '_blank')
+  printWindow.document.write(html)
+  printWindow.document.close()
+  printWindow.onload = () => {
+    setTimeout(() => printWindow.print(), 300)
+  }
+}
+
 // ── RESULTS TAB ──────────────────────────────────────────────────
 function ResultsTab({ result, onNewAnalysis }) {
   const [filter, setFilter] = useState('All')
+  const [prReport, setPrReport] = useState(null)
+  const [prLoading, setPrLoading] = useState(false)
+
+  // Auto-fetch PR summary when result loads
+  useEffect(() => {
+    if (!result || prReport) return
+    const fetchPR = async () => {
+      setPrLoading(true)
+      try {
+        const data = await api.prSummary(
+          result,
+          result.submission?.filename || 'uploaded_code',
+          result.submission?.language || 'python'
+        )
+        setPrReport(data)
+      } catch {
+        setPrReport(null)
+      } finally {
+        setPrLoading(false)
+      }
+    }
+    fetchPR()
+  }, [result]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!result) {
     return (
@@ -574,6 +788,7 @@ function ResultsTab({ result, onNewAnalysis }) {
   const riskLvl = summary.risk_level ?? 'Low'
   const filters = ['All', 'Critical', 'High', 'Medium', 'Low']
   const filtered = filter === 'All' ? findings : findings.filter(f => f.severity === filter)
+  const healthScore = prReport?.code_health_score ?? Math.max(0, 100 - ((breakdown.Critical ?? 0) * 20 + (breakdown.High ?? 0) * 10 + (breakdown.Medium ?? 0) * 5 + (breakdown.Low ?? 0) * 2))
 
   const exportMarkdown = () => {
     let md = `# AI Code Analysis Report\n\n`
@@ -582,7 +797,7 @@ function ResultsTab({ result, onNewAnalysis }) {
     md += `**Total Findings:** ${summary.total_findings ?? 0}\n`
     md += `**Risk Level:** ${riskLvl}\n\n`
     md += `## Findings\n\n`
-    
+
     findings.forEach((f, i) => {
       md += `### ${i+1}. ${f.type}\n`
       md += `- **Severity:** ${f.severity}\n`
@@ -614,25 +829,28 @@ function ResultsTab({ result, onNewAnalysis }) {
         </p>
       </div>
 
-      {/* Severity stat cards */}
-      <div className="summary-grid">
-        {[
-          { key: 'Critical', cls: 'c' },
-          { key: 'High',     cls: 'h' },
-          { key: 'Medium',   cls: 'm' },
-          { key: 'Low',      cls: 'l' },
-        ].map(({ key, cls }) => (
-          <button
-            key={key}
-            className={`sev-card glass ${filter === key ? 'sev-card-active' : ''}`}
-            onClick={() => setFilter(f => f === key ? 'All' : key)}
-            title={`Filter by ${key}`}
-          >
-            <div className={`sev-num ${cls}`}>{breakdown[key] ?? 0}</div>
-            <div className="sev-label">{key}</div>
-            <div className={`sev-indicator sev-ind-${cls}`} />
-          </button>
-        ))}
+      {/* Dashboard row: severity cards + health gauge */}
+      <div className="dashboard-row">
+        <div className="summary-grid">
+          {[
+            { key: 'Critical', cls: 'c' },
+            { key: 'High',     cls: 'h' },
+            { key: 'Medium',   cls: 'm' },
+            { key: 'Low',      cls: 'l' },
+          ].map(({ key, cls }) => (
+            <button
+              key={key}
+              className={`sev-card glass ${filter === key ? 'sev-card-active' : ''}`}
+              onClick={() => setFilter(f => f === key ? 'All' : key)}
+              title={`Filter by ${key}`}
+            >
+              <div className={`sev-num ${cls}`}>{breakdown[key] ?? 0}</div>
+              <div className="sev-label">{key}</div>
+              <div className={`sev-indicator sev-ind-${cls}`} />
+            </button>
+          ))}
+        </div>
+        <HealthGauge score={healthScore} />
       </div>
 
       {/* Risk banner */}
@@ -655,27 +873,69 @@ function ResultsTab({ result, onNewAnalysis }) {
           </div>
           <div className="risk-stat-divider" />
           <div className="risk-stat">
-            <span className="risk-stat-val">{breakdown.Critical ?? 0}</span>
-            <span className="risk-stat-key">Critical</span>
+            <span className="risk-stat-val">{healthScore}</span>
+            <span className="risk-stat-key">Health Score</span>
           </div>
         </div>
-        <button className="export-btn" onClick={exportMarkdown}>
-          <Icon.Download /> Export Markdown
-        </button>
+        <div className="risk-actions">
+          <button className="export-btn" onClick={exportMarkdown}>
+            <Icon.Download /> Export Markdown
+          </button>
+          {prReport && (
+            <button className="export-btn" onClick={() => downloadPDF(prReport)} style={{ borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', color: 'var(--violet-l)' }}>
+              <Icon.FileText /> Download PDF Report
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* PR Summary */}
-      {result.pr_summary && (
-        <div className="pr-summary-banner glass" style={{ padding: '1.5rem', marginBottom: '1.5rem', borderLeft: '4px solid var(--accent-primary)' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Icon.GitMerge /> {result.pr_summary.title || "PR Summary"}
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '1rem' }}>
-            {result.pr_summary.executive_summary}
-          </p>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <span className="chip chip-time">
-              <Icon.Cpu /> Fix time: {result.pr_summary.estimated_fix_time || "N/A"}
+      {/* PR Summary Section */}
+      {prLoading && (
+        <div className="pr-report-card glass" style={{ textAlign: 'center', padding: '2rem' }}>
+          <span className="spin" style={{ width: 20, height: 20, borderWidth: 2.5 }} />
+          <div style={{ marginTop: '0.75rem', color: 'var(--text-3)', fontSize: '0.85rem' }}>Generating PR Summary Report...</div>
+        </div>
+      )}
+      {prReport && (
+        <div className="pr-report-card glass">
+          <div className="pr-report-header">
+            <Icon.GitMerge />
+            <div>
+              <div className="pr-report-title">{prReport.pr_title || 'Code Review Report'}</div>
+              <div className="pr-report-meta">Auto-generated by PR Summary Agent</div>
+            </div>
+          </div>
+
+          <div className="pr-report-overview">{prReport.executive_overview}</div>
+
+          {prReport.prioritized_fix_list?.length > 0 && (
+            <div className="pr-fix-section">
+              <div className="pr-fix-heading">Prioritized Fix List</div>
+              <ol className="pr-fix-list">
+                {prReport.prioritized_fix_list.map((fix, i) => (
+                  <li key={i} className="pr-fix-item">{fix}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {prReport.positive_observations?.length > 0 && (
+            <div className="pr-positives">
+              <div className="pr-fix-heading" style={{ color: 'var(--emerald)' }}>Positive Observations</div>
+              <ul>
+                {prReport.positive_observations.map((obs, i) => (
+                  <li key={i} style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginBottom: '0.3rem' }}>{obs}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="pr-report-footer">
+            <span className="chip chip-time" style={{ gap: '0.3rem' }}>
+              <Icon.Cpu /> Fix time: {prReport.estimated_fix_time || 'N/A'}
+            </span>
+            <span className="chip chip-cat" style={{ gap: '0.3rem' }}>
+              <Icon.Activity /> Health: {prReport.code_health_score ?? healthScore}/100
             </span>
           </div>
         </div>
@@ -712,29 +972,40 @@ function ResultsTab({ result, onNewAnalysis }) {
             </div>
           </div>
         ) : (
-          filtered.map((f, i) => <FindingCard key={`${f.type}-${i}`} finding={f} idx={i} />)
+          filtered.map((f, i) => (
+            <FindingCard
+              key={`${f.type}-${i}`}
+              finding={f}
+              idx={i}
+              code={result._submittedCode || ''}
+              language={result._submittedLanguage || 'python'}
+            />
+          ))
         )}
       </div>
     </div>
   )
 }
 
-// ── FLOATING SECURITY ASSISTANT ───────────────────────────────────────────
+// ── FLOATING SECURITY ASSISTANT (uses /chat) ─────────────────────
 const SUGGESTIONS = [
   'How to prevent SQL injection?',
-  'What is CSRF?',
-  'Secure error handling?',
+  'Explain OWASP Top 10',
+  'Secure error handling best practices',
 ]
 
 function SecurityWidget({ result }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([{
     role: 'bot',
-    text: 'Hello! Ask me about security vulnerabilities or best practices.',
+    text: 'Hello! I am your secure coding assistant. Ask me about security vulnerabilities, OWASP standards, or best practices.',
     sources: [],
+    relatedQuestions: [],
+    codeExample: '',
   }])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [history, setHistory] = useState([])
   const bottomRef = useRef()
   const inputRef = useRef()
 
@@ -747,30 +1018,35 @@ function SecurityWidget({ result }) {
     if (!q || loading) return
     setInput('')
     setMessages(m => [...m, { role: 'user', text: q }])
+
+    const newHistory = [...history, { role: 'user', content: q }]
     setLoading(true)
 
     try {
-      let contextStr = ""
-      if (result && result.findings) {
-          contextStr = JSON.stringify(result.findings.map(f => ({
-              type: f.type, description: f.description, severity: f.severity, recommendation: f.recommendation
-          })))
-      }
-      
-      const data = await api.askRAG(q, contextStr, 5)
-      const context = data.results ?? []
-      const answer = data.answer || "I could not generate a response."
+      const contextCode = result?._submittedCode || ''
+      const contextFindings = result?.findings?.map(f => ({
+        type: f.type, description: f.description, severity: f.severity, recommendation: f.recommendation
+      })) || []
 
-      setMessages(m => [...m, {
+      const data = await api.chat(q, contextCode, contextFindings, newHistory.slice(-6))
+
+      const botMsg = {
         role: 'bot',
-        text: answer,
-        sources: context.map(c => c.source).filter(Boolean).slice(0, 3),
-      }])
+        text: data.answer || 'I could not generate a response.',
+        sources: data.sources || [],
+        relatedQuestions: data.related_questions || [],
+        codeExample: data.code_example || '',
+      }
+
+      setMessages(m => [...m, botMsg])
+      setHistory([...newHistory, { role: 'assistant', content: data.answer || '' }])
     } catch (err) {
       setMessages(m => [...m, {
         role: 'bot',
-        text: `Error connecting to knowledge base: ${err.message}`,
+        text: `Error: ${err.message}`,
         sources: [],
+        relatedQuestions: [],
+        codeExample: '',
       }])
     } finally {
       setLoading(false)
@@ -785,25 +1061,35 @@ function SecurityWidget({ result }) {
           <div className="security-widget-header">
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>Security Agent</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>OWASP Knowledge Base</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Powered by Groq AI</div>
             </div>
             <button className="security-widget-close" onClick={() => setOpen(false)}>
               <Icon.X />
             </button>
           </div>
-          
+
           <div className="security-widget-body">
             <div className="chat-messages" style={{ padding: '1rem', flex: 1, minHeight: 0 }}>
               {messages.map((msg, i) => (
                 <div key={i} className={`msg msg-${msg.role}`}>
                   <div className="msg-content" style={{ width: '100%' }}>
                     <div className="msg-bubble">{msg.text}</div>
+                    {msg.codeExample && (
+                      <pre className="chat-code-block">{msg.codeExample}</pre>
+                    )}
                     {msg.sources?.length > 0 && (
                       <div className="msg-sources">
                         {msg.sources.map((s, j) => (
                           <span key={j} className="msg-source">
                             <Icon.FileText /> {s}
                           </span>
+                        ))}
+                      </div>
+                    )}
+                    {msg.relatedQuestions?.length > 0 && (
+                      <div className="chat-related">
+                        {msg.relatedQuestions.map((rq, j) => (
+                          <button key={j} className="related-question-chip" onClick={() => send(rq)}>{rq}</button>
                         ))}
                       </div>
                     )}
@@ -833,7 +1119,7 @@ function SecurityWidget({ result }) {
                 ))}
               </div>
             )}
-            
+
             <div className="chat-input-bar">
               <textarea
                 ref={inputRef}
@@ -841,7 +1127,7 @@ function SecurityWidget({ result }) {
                 style={{ minHeight: '38px', padding: '0.55rem 0.8rem', fontSize: '0.8rem' }}
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                placeholder="Ask a question..."
+                placeholder="Ask about security..."
                 rows={1}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {

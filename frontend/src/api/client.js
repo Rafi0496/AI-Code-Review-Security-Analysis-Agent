@@ -39,6 +39,23 @@ export const api = {
   askRAG: (query, context = "", top_k = 5) =>
     post('/rag/query', { question: query, context }),
 
+  /** Get remediation fix for a specific finding */
+  remediate: (finding, code, language) =>
+    post('/remediate', { finding, code, language }),
+
+  /** Generate full PR summary report */
+  prSummary: (analysisResult, filename, language) =>
+    post('/pr-summary', { analysis_result: analysisResult, filename, language }),
+
+  /** Chat with the code assistant (with conversation history) */
+  chat: (question, contextCode = "", contextFindings = [], conversationHistory = []) =>
+    post('/chat', {
+      question,
+      context_code: contextCode,
+      context_findings: contextFindings,
+      conversation_history: conversationHistory,
+    }),
+
   /** Ping the backend */
   ping: () =>
     fetch(`${BASE}/health`)

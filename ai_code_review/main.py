@@ -1,4 +1,5 @@
 import os, ast, re, json
+import urllib.request
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -20,9 +21,29 @@ class RAGQueryRequest(BaseModel):
     question: str
     context: str = ""
 
+class RemediateRequest(BaseModel):
+    finding: dict
+    code: str
+    language: str
+
+class PRSummaryRequest(BaseModel):
+    analysis_result: dict
+    filename: str = "uploaded_code"
+    language: str = "python"
+
+class ChatRequest(BaseModel):
+    question: str
+    context_code: str = ""
+    context_findings: list = []
+    conversation_history: list = []
+
 @app.get("/")
 async def root():
     return {"message": "Development of Smart Code Inspection Platform with Vulnerability Detection System", "status": "live", "version": "3.0.0"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "version": "3.0.0"}
 
 @app.post("/analyze/text")
 async def analyze_text(req: AnalyzeTextRequest):
@@ -71,6 +92,164 @@ async def rag_query(req: RAGQueryRequest):
 @app.get("/rag/rebuild")
 async def rag_rebuild():
     return {"status": "ok", "message": "Knowledge base rebuilt"}
+
+def groq_generate(prompt: str, system_prompt: str = "") -> str | None:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key: return None
+    
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    
+    data = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": messages,
+        "temperature": 0.3,
+        "max_tokens": 2048,
+    }
+    
+    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    })
+    
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            return result["choices"][0]["message"]["content"]
+    except:
+        return None
+
+@app.post("/remediate")
+async def remediate(req: RemediateRequest):
+    fallback = {
+        "finding_type": req.finding.get("type", "Unknown"),
+        "severity": req.finding.get("severity", "Medium"),
+        "fix_summary": req.finding.get("recommendation", "Review and fix this issue."),
+        "corrected_code": "// Fix not available — review manually",
+        "best_practice": "Follow secure coding standards and OWASP guidelines.",
+        "owasp_reference": "OWASP Top 10",
+        "before_code": "// See original code",
+        "after_code": "// Apply recommended fix"
+    }
+    try:
+        sys_prompt = "You are a secure coding expert. Return ONLY valid JSON with keys: finding_type, severity, fix_summary, corrected_code, best_practice, owasp_reference, before_code, after_code."
+        prompt = f"Finding: {json.dumps(req.finding)}\nLanguage: {req.language}\nCode:\n{req.code}\nProvide the requested JSON remediation."
+        res = groq_generate(prompt, sys_prompt)
+        if not res: return fallback
+        text = re.sub(r"```(?:json)?\n?","",res.strip()).strip()
+        return json.loads(text)
+    except:
+        return fallback
+
+@app.post("/pr-summary")
+async def pr_summary_endpoint(req: PRSummaryRequest):
+    try:
+        result = req.analysis_result
+        findings = result.get("findings", [])
+        sev = result.get("summary", {}).get("severity_breakdown", {"Critical":0, "High":0, "Medium":0, "Low":0})
+        
+        score = 100 - (sev.get("Critical",0)*20 + sev.get("High",0)*10 + sev.get("Medium",0)*5 + sev.get("Low",0)*2)
+        score = max(0, score)
+        
+        prompt = f'''You are a PR Summary agent.
+Based on the following findings, return a JSON with: "executive_overview", "top_critical_findings" (list of strings with impact statements), "positive_observations" (list of strings).
+Return raw JSON only.
+Findings: {json.dumps(findings[:50])}
+Severity: {json.dumps(sev)}
+Score: {score}'''
+        
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
+        text = re.sub(r"```(?:json)?\n?","",response.text.strip()).strip()
+        data = json.loads(text)
+        
+        prioritized = sorted(findings, key=lambda x: ["Critical","High","Medium","Low"].index(x.get("severity", "Low")))
+        
+        md_report = f"# Code Review Report\n\n## Score: {score}/100\n\n## Overview\n{data.get('executive_overview', 'Review completed.')}\n\n## Priority Fixes\n"
+        for f in prioritized[:10]:
+            md_report += f"- **{f.get('severity', 'Low')}**: {f.get('type', 'Issue')} at line {f.get('line', 0)}\n"
+            
+        return {
+            "pr_title": f"Security Review: {req.filename}",
+            "executive_overview": data.get("executive_overview", "Code review completed."),
+            "risk_level": result.get("summary", {}).get("risk_level", "Unknown"),
+            "code_health_score": score,
+            "severity_breakdown": sev,
+            "top_critical_findings": data.get("top_critical_findings", []),
+            "prioritized_fix_list": prioritized,
+            "positive_observations": data.get("positive_observations", []),
+            "estimated_fix_time": "1 hour",
+            "markdown_report": md_report
+        }
+    except Exception as e:
+        return {
+            "pr_title": "Security Review",
+            "executive_overview": "Could not generate full summary.",
+            "risk_level": "Medium",
+            "code_health_score": 50,
+            "severity_breakdown": {"Critical":0, "High":0, "Medium":0, "Low":0},
+            "top_critical_findings": [],
+            "prioritized_fix_list": [],
+            "positive_observations": [],
+            "estimated_fix_time": "TBD",
+            "markdown_report": "# Code Review Report\nFailed to generate."
+        }
+
+@app.post("/chat")
+async def chat_endpoint(req: ChatRequest):
+    fallback = {
+        "answer": "I apologize, I could not generate a response. Please try again.",
+        "code_example": "",
+        "sources": ["OWASP Top 10"],
+        "related_questions": ["What is OWASP?", "How to write secure code?"],
+        "confidence": "low"
+    }
+    try:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key: return fallback
+        
+        sys_prompt = "You are a senior secure coding expert grounded in OWASP standards. Respond ONLY in valid JSON with keys: answer, code_example, sources (list of strings), related_questions (list of strings), confidence."
+        
+        messages = [{"role": "system", "content": sys_prompt}]
+        for m in req.conversation_history[-6:]:
+            messages.append(m)
+            
+        user_content = ""
+        if req.context_code: user_content += f"Code Context:\n{req.context_code}\n\n"
+        if req.context_findings: user_content += f"Findings:\n{json.dumps(req.context_findings)}\n\n"
+        user_content += f"Question: {req.question}"
+        
+        messages.append({"role": "user", "content": user_content})
+        
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        data = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": 2048,
+        }
+        
+        req_obj = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        })
+        
+        with urllib.request.urlopen(req_obj) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            text = result["choices"][0]["message"]["content"]
+            try:
+                clean_text = re.sub(r"```(?:json)?\n?","",text.strip()).strip()
+                return json.loads(clean_text)
+            except:
+                fallback["answer"] = text
+                return fallback
+    except Exception as e:
+        return fallback
 
 def static_analysis(code, language):
     findings = []
