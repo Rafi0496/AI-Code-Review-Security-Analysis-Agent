@@ -279,79 +279,70 @@ function FindingCard({ finding, idx, code, language }) {
 
   return (
     <div
-      className="finding glass"
+      className={`vuln-card border-l-${cls}`}
       style={{ animationDelay: `${Math.min(idx * 0.06, 0.8)}s` }}
     >
-      <div className="finding-head" onClick={() => setOpen(o => !o)} role="button" tabIndex={0}
+      <div className="vuln-card-header" onClick={() => setOpen(o => !o)} role="button" tabIndex={0}
         onKeyDown={e => e.key === 'Enter' && setOpen(o => !o)}>
-        <div className={`finding-sev-bar ${cls}`} />
-        <div className="finding-info">
-          <div className="finding-name">{finding.type}</div>
-          <div className="finding-agent">
-            {finding.agent ?? 'Analysis Agent'}&nbsp;&nbsp;·&nbsp;&nbsp;{finding.category ?? 'General'}
-          </div>
-        </div>
-        <div className="finding-chips">
-          <span className={`chip chip-${cls}`}>{finding.severity}</span>
+        <div className="finding-info" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span className={`sev-badge sev-badge-${cls}`}>{finding.severity}</span>
+          <div className="finding-name" style={{ flex: 1, fontWeight: 'bold' }}>{finding.type}</div>
           {finding.line > 0 && (
-            <span className="chip chip-line">Line {finding.line}</span>
+            <span className="line-num">Line {finding.line}</span>
           )}
         </div>
-        <span className={`chevron-icon ${open ? 'open' : ''}`}>
-          <Icon.ChevronDown />
-        </span>
       </div>
+      <div className="vuln-desc" style={{ padding: '0 1rem 1rem' }}>{finding.description}</div>
 
       {open && (
-        <div className="finding-body">
-          <p className="finding-desc">{finding.description}</p>
+        <div className="vuln-body" style={{ padding: '0 1rem 1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
           {finding.owasp && (
-            <div style={{ marginTop: '0.6rem' }}>
+            <div style={{ marginBottom: '0.6rem' }}>
               <span className="chip chip-cat">{finding.owasp}</span>
             </div>
           )}
           {finding.recommendation && (
-            <div className="finding-rec">
-              <span className="finding-rec-label">Recommendation</span>
+            <div className="vuln-rec" style={{ marginBottom: '1rem', color: 'var(--text-2)' }}>
+              <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.25rem' }}>Recommendation</span>
               {finding.recommendation}
             </div>
           )}
 
           {/* Remediation Agent Section */}
           {!fix && (
-            <button className="view-fix-btn" onClick={loadFix} disabled={fixLoading}>
+            <button className="view-fix-btn" onClick={loadFix} disabled={fixLoading} style={{ background: 'rgba(128,131,255,0.1)', color: '#c0c1ff', border: '1px solid rgba(128,131,255,0.3)', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               {fixLoading ? (
                 <><span className="spin" style={{ width: 12, height: 12, borderWidth: 2 }} /> Loading Fix...</>
               ) : (
-                <><Icon.Wrench /> View Fix</>
+                <><Icon.Wrench /> View Fix →</>
               )}
             </button>
           )}
 
           {fix && (
-            <div className="remediation-card">
-              <div className="remediation-header">
+            <div className="remediation-card" style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div className="remediation-header" style={{ fontWeight: 'bold', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Icon.Wrench /> Remediation Agent
                 {fix.owasp_reference && <span className="chip chip-cat" style={{ marginLeft: 'auto' }}>{fix.owasp_reference}</span>}
               </div>
-              <div className="remediation-summary">{fix.fix_summary}</div>
+              <div className="remediation-summary" style={{ marginBottom: '1rem' }}>{fix.fix_summary}</div>
 
               {(fix.before_code || fix.after_code) && (
-                <div className="diff-container">
+                <div className="diff-container" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div className="diff-panel diff-before">
-                    <div className="diff-label">Before (Vulnerable)</div>
-                    <pre className="diff-code">{fix.before_code || '—'}</pre>
+                    <div className="diff-label" style={{ color: 'var(--sev-c)' }}>Before (Vulnerable)</div>
+                    <pre className="diff-code" style={{ background: 'rgba(255,0,0,0.05)', padding: '0.5rem', borderRadius: '4px', overflowX: 'auto' }}>{fix.before_code || '—'}</pre>
                   </div>
                   <div className="diff-panel diff-after">
-                    <div className="diff-label">After (Fixed)</div>
-                    <pre className="diff-code">{fix.after_code || '—'}</pre>
+                    <div className="diff-label" style={{ color: 'var(--emerald)' }}>After (Fixed)</div>
+                    <pre className="diff-code" style={{ background: 'rgba(0,255,0,0.05)', padding: '0.5rem', borderRadius: '4px', overflowX: 'auto' }}>{fix.after_code || '—'}</pre>
                   </div>
                 </div>
               )}
 
               {fix.best_practice && (
-                <div className="remediation-practice">
-                  <span className="remediation-practice-label">Best Practice</span>
+                <div className="remediation-practice" style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.5rem' }}>
+                  <span className="remediation-practice-label" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.25rem' }}>Best Practice</span>
                   {fix.best_practice}
                 </div>
               )}
@@ -372,41 +363,12 @@ const STEPS = [
 ]
 const STEP_ORDER = STEPS.map(s => s.key)
 
-function AgentProgress({ progress }) {
-  const cur = STEP_ORDER.indexOf(progress)
-  return (
-    <div className="agent-panel glass">
-      <div className="agent-panel-title">
-        <span className="spin" style={{ width: 14, height: 14, borderWidth: 2 }} />
-        Multi-Agent Pipeline
-      </div>
-      {STEPS.map((step, i) => {
-        const status = cur === -1 ? 'waiting' : i < cur ? 'done' : i === cur ? 'running' : 'waiting'
-        return (
-          <div key={step.key} className={`agent-step ${status}`}>
-            <span className="step-icon-wrap">
-              <step.Icon />
-            </span>
-            <span className="step-text">{step.text}</span>
-            <span className={`step-badge step-${status}`}>
-              {status === 'running' && <span className="spin" style={{ width: 10, height: 10, borderWidth: 2 }} />}
-              {status === 'done' && <Icon.CheckCircle />}
-              {status === 'running' ? 'Running' : status === 'done' ? 'Done' : 'Waiting'}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 // ── ANALYZE TAB ──────────────────────────────────────────────────
-function AnalyzeTab({ onResult, onTabSwitch }) {
+function AnalyzeTab({ onResult, onTabSwitch, setAnalyzing, progress, setProgress }) {
   const [code, setCode] = useState('')
   const [file, setFile] = useState(null)
   const [mode, setMode] = useState('paste')
   const [loading, setLoading] = useState(false)
-  const [progress, setProgress] = useState(null)
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef()
 
@@ -415,6 +377,7 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
     if (mode === 'file' && !file) return
 
     setLoading(true)
+    setAnalyzing(true)
     setProgress('submission')
 
     try {
@@ -444,9 +407,10 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
       onResult(null, err.message)
     } finally {
       setLoading(false)
+      setAnalyzing(false)
       setProgress(null)
     }
-  }, [code, file, mode, onResult, onTabSwitch])
+  }, [code, file, mode, onResult, onTabSwitch, setAnalyzing, setProgress])
 
   const onDrop = (e) => {
     e.preventDefault()
@@ -463,89 +427,53 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
   const canRun = mode === 'paste' ? code.trim().length > 0 : !!file
 
   return (
-    <div className="analyze-grid">
-      {/* Left — editor */}
-      <div className="editor-col">
-        <div className="section-header">
-          <h2 className="section-title gradient-text">Code Analysis</h2>
-          <p className="section-sub">Paste source code or upload a file</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <div className="terminal-panel glass-panel">
+        <div className="terminal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="traffic-lights" style={{ display: 'flex', gap: '6px' }}>
+            <span className="tl-red" style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#ef4444' }}/>
+            <span className="tl-yellow" style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f59e0b' }}/>
+            <span className="tl-green" style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#10b981' }}/>
+          </div>
+          <div className="terminal-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button onClick={() => setMode('paste')} style={{ color: mode === 'paste' ? '#c0c1ff' : '#908fa0', background: 'transparent', border: 'none', cursor: 'pointer' }}>Paste Code</button>
+            <button onClick={() => setMode('file')} style={{ color: mode === 'file' ? '#c0c1ff' : '#908fa0', background: 'transparent', border: 'none', cursor: 'pointer' }}>Upload File</button>
+            {mode === 'paste' && <button onClick={loadSample} style={{ color: '#908fa0', background: 'transparent', border: 'none', cursor: 'pointer' }}>Load Sample</button>}
+          </div>
         </div>
-
-        {/* Mode pills */}
-        <div className="mode-row">
-          <button
-            className={`mode-pill ${mode === 'paste' ? 'mode-active' : ''}`}
-            onClick={() => setMode('paste')}
-          >
-            <Icon.Code /> Paste Code
-          </button>
-          <button
-            className={`mode-pill ${mode === 'file' ? 'mode-active' : ''}`}
-            onClick={() => setMode('file')}
-          >
-            <Icon.Upload /> Upload File
-          </button>
-        </div>
-
+        
         {mode === 'paste' ? (
-          <>
-            {/* Toolbar row */}
-            <div className="toolbar-row" style={{ justifyContent: 'flex-end' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="toolbar-btn" onClick={loadSample} title="Load sample vulnerable code">
-                  <Icon.Clipboard /> Load Sample
-                </button>
-                {code && (
-                  <button className="toolbar-btn toolbar-btn-danger" onClick={() => setCode('')} title="Clear editor">
-                    <Icon.Trash /> Clear
-                  </button>
-                )}
-              </div>
+          <div className="terminal-body" style={{ display: 'flex', minHeight: '300px', background: 'rgba(0,0,0,0.2)' }}>
+            <div className="line-numbers" style={{ padding: '1rem 0.5rem', color: '#464554', textAlign: 'right', userSelect: 'none', minWidth: '40px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+              {code.split('\n').map((_, i) => <div key={i}>{i + 1}</div>)}
             </div>
-
-            {/* Code editor */}
-            <div className="editor-wrap">
-              <div className="editor-bar">
-                <div className="editor-dots">
-                  <span className="dot dot-r" /><span className="dot dot-y" /><span className="dot dot-g" />
-                </div>
-                <span className="editor-lang-label">
-                  <Icon.Code /> Source Code
-                </span>
-                <span className="editor-counter">
-                  {code.split('\n').length} lines &nbsp;·&nbsp; {code.length} chars
-                </span>
-              </div>
-              <textarea
-                className="code-area"
-                value={code}
-                onChange={e => setCode(e.target.value)}
-                placeholder={`// Paste your source code here`}
-                spellCheck={false}
-                autoComplete="off"
-                onKeyDown={e => {
-                  if (e.key === 'Tab') {
-                    e.preventDefault()
-                    const s = e.target.selectionStart
-                    const end = e.target.selectionEnd
-                    setCode(c => c.slice(0, s) + '    ' + c.slice(end))
-                    setTimeout(() => e.target.setSelectionRange(s + 4, s + 4), 0)
-                  }
-                }}
-              />
-            </div>
-          </>
+            <textarea 
+              className="code-textarea" 
+              value={code}
+              onChange={e => setCode(e.target.value)}
+              placeholder="// Paste your source code here..."
+              spellCheck={false}
+              autoComplete="off"
+              style={{ flex: 1, background: 'transparent', border: 'none', color: '#e4e1ed', padding: '1rem', fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', resize: 'vertical', outline: 'none' }}
+              onKeyDown={e => {
+                if (e.key === 'Tab') {
+                  e.preventDefault()
+                  const s = e.target.selectionStart
+                  const end = e.target.selectionEnd
+                  setCode(c => c.slice(0, s) + '    ' + c.slice(end))
+                  setTimeout(() => e.target.setSelectionRange(s + 4, s + 4), 0)
+                }
+              }}
+            />
+          </div>
         ) : (
-          /* File dropzone */
-          <div
-            className={`dropzone ${dragOver ? 'drag-over' : ''} ${file ? 'has-file' : ''}`}
+          <div 
+            className="terminal-body" 
+            style={{ minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', border: dragOver ? '2px dashed #8083ff' : '2px dashed rgba(255,255,255,0.1)', margin: '1rem', borderRadius: '8px' }}
             onDragOver={e => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
             onClick={() => fileRef.current?.click()}
-            role="button"
-            tabIndex={0}
-            onKeyDown={e => e.key === 'Enter' && fileRef.current?.click()}
           >
             <input
               ref={fileRef}
@@ -553,102 +481,55 @@ function AnalyzeTab({ onResult, onTabSwitch }) {
               style={{ display: 'none' }}
               onChange={e => { if (e.target.files[0]) setFile(e.target.files[0]) }}
             />
-            <div className="dropzone-icon-wrap">
-              {file ? <Icon.File /> : <Icon.Upload />}
-            </div>
             {file ? (
               <>
-                <div className="dropzone-label">File Ready</div>
-                <div className="dropzone-filename">
-                  {file.name} &nbsp;·&nbsp; {(file.size / 1024).toFixed(1)} KB
-                </div>
-                <div className="dropzone-hint">Click or drop to replace</div>
-                <button
-                  className="toolbar-btn toolbar-btn-danger"
-                  style={{ marginTop: '1rem', position: 'relative', zIndex: 10, display: 'inline-flex', margin: '1rem auto 0 auto' }}
-                  onClick={(e) => { e.stopPropagation(); setFile(null); setMode('paste'); }}
-                >
-                  <Icon.X /> Remove File
-                </button>
+                <Icon.File />
+                <div style={{ marginTop: '1rem' }}>{file.name}</div>
+                <button onClick={(e) => { e.stopPropagation(); setFile(null); setMode('paste'); }} style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Remove File</button>
               </>
             ) : (
               <>
-                <div className="dropzone-label">Drop your source file here</div>
-                <div className="dropzone-hint">or click to browse any programming language</div>
+                <Icon.Upload />
+                <div style={{ marginTop: '1rem' }}>Drop your source file here</div>
+                <div style={{ color: '#908fa0', fontSize: '0.875rem' }}>or click to browse</div>
               </>
             )}
           </div>
         )}
 
-        {/* Run button */}
-        <button
-          className="run-btn"
-          onClick={runAnalysis}
-          disabled={loading || !canRun}
-          aria-label="Run Security Analysis"
-        >
-          {loading ? (
-            <span className="run-btn-loading">
-              <span className="spin" style={{ width: 18, height: 18, borderWidth: 2.5 }} />
-              Agents Running…
-            </span>
-          ) : (
-            <span className="run-btn-idle">
-              <Icon.Play />
-              Run Security Analysis
-            </span>
-          )}
-        </button>
+        <div className="terminal-footer" style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <button className="sentinel-run-btn" onClick={runAnalysis} disabled={loading || !canRun} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#8083ff', color: '#1000a9', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '4px', fontWeight: 'bold', cursor: canRun ? 'pointer' : 'not-allowed', opacity: canRun ? 1 : 0.5 }}>
+            {loading ? <span className="spin" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <Icon.Play/>} {loading ? 'Running...' : 'Run Analysis'}
+          </button>
+        </div>
       </div>
 
-      {/* Right — progress or info cards */}
-      <div className="info-col">
-        {loading ? (
-          <AgentProgress progress={progress} />
-        ) : (
-          <>
-            <InfoCard icon={<Icon.Cpu />} title="Multi-Agent Pipeline" color="violet">
-              Two specialized AI agents run in parallel —{' '}
-              <strong style={{ color: 'var(--violet-l)' }}>Code Analysis Agent</strong> and{' '}
-              <strong style={{ color: 'var(--cyan-l)' }}>Security Vulnerability Agent</strong> — then
-              merged by the Orchestrator.
-            </InfoCard>
-            <InfoCard icon={<Icon.Shield />} title="OWASP Coverage" color="cyan">
-              <div className="tag-wrap" style={{ marginTop: '0.5rem' }}>
-                {['SQL Injection', 'XSS', 'CSRF', 'Command Injection',
-                  'Path Traversal', 'Hardcoded Secrets', 'Broken Access'].map(t => (
-                  <span key={t} className="chip chip-cat" style={{ fontSize: '0.65rem' }}>{t}</span>
-                ))}
-              </div>
-            </InfoCard>
-            <InfoCard icon={<Icon.Search />} title="Detection Layers" color="emerald">
-              <ul className="detection-list">
-                {[
-                  ['AST + Radon', 'Static complexity analysis'],
-                  ['TaintTracker', 'Source-to-sink flow analysis'],
-                  ['Bandit', 'Python security linter'],
-                  ['Gemini AI', 'Pattern & context detection'],
-                ].map(([name, desc]) => (
-                  <li key={name}>
-                    <span className="det-name">{name}</span>
-                    <span className="det-desc">{desc}</span>
-                  </li>
-                ))}
-              </ul>
-            </InfoCard>
-          </>
-        )}
+      <div className="feature-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+        <div className="feature-card glass-panel" style={{ padding: '1.5rem', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#c0c1ff', fontWeight: 'bold' }}>
+            <Icon.Cpu /> Multi-Agent Pipeline
+          </div>
+          <div style={{ color: '#c7c4d7', fontSize: '0.875rem', lineHeight: '1.5' }}>
+            Two specialized AI agents run in parallel — Code Analysis Agent and Security Vulnerability Agent — then merged by the Orchestrator.
+          </div>
+        </div>
+        <div className="feature-card glass-panel" style={{ padding: '1.5rem', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#c0c1ff', fontWeight: 'bold' }}>
+            <Icon.Shield /> OWASP Top 10
+          </div>
+          <div style={{ color: '#c7c4d7', fontSize: '0.875rem', lineHeight: '1.5' }}>
+            Detects SQL Injection, XSS, CSRF, Command Injection, Path Traversal, Hardcoded Secrets, and Broken Access Control.
+          </div>
+        </div>
+        <div className="feature-card glass-panel" style={{ padding: '1.5rem', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#c0c1ff', fontWeight: 'bold' }}>
+            <Icon.Wrench /> Smart Remediation
+          </div>
+          <div style={{ color: '#c7c4d7', fontSize: '0.875rem', lineHeight: '1.5' }}>
+            Provides context-aware code fixes and automated PR generation to resolve vulnerabilities efficiently.
+          </div>
+        </div>
       </div>
-    </div>
-  )
-}
-
-function InfoCard({ icon, title, color, children }) {
-  return (
-    <div className={`info-card glass info-card-${color}`}>
-      <div className={`info-card-icon icon-${color}`}>{icon}</div>
-      <div className="info-card-title">{title}</div>
-      <div className="info-card-body">{children}</div>
     </div>
   )
 }
@@ -797,13 +678,10 @@ function ResultsTab({ result, onNewAnalysis }) {
 
   if (!result) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon"><Icon.BarChart /></div>
-        <div className="empty-state-title">No analysis results yet</div>
-        <div className="empty-state-sub">Go to the Analyze tab, paste your code, and click Run Security Analysis</div>
-        <button className="run-btn" style={{ marginTop: '1.5rem', maxWidth: 260 }} onClick={onNewAnalysis}>
-          <span className="run-btn-idle"><Icon.Play /> Start Analysis</span>
-        </button>
+      <div style={{ textAlign: 'center', padding: '4rem', color: '#c7c4d7' }}>
+        <Icon.BarChart />
+        <h3 style={{ margin: '1rem 0' }}>No analysis results yet</h3>
+        <p>Go to the Scanner tab and run an analysis first.</p>
       </div>
     )
   }
@@ -844,260 +722,160 @@ function ResultsTab({ result, onNewAnalysis }) {
   }
 
   return (
-    <div className="results-wrap">
-      <div className="section-header">
-        <h2 className="section-title gradient-text">Analysis Results</h2>
-        <p className="section-sub">
-          {submission?.filename ?? 'Pasted code'}&nbsp;·&nbsp;
-          {submission?.language}&nbsp;·&nbsp;
-          {submission?.lines ?? '—'} lines
-        </p>
-      </div>
-
-      {/* Dashboard row: severity cards + health gauge */}
-      <div className="dashboard-row">
-        <div className="summary-grid">
-          {[
-            { key: 'Critical', cls: 'c' },
-            { key: 'High',     cls: 'h' },
-            { key: 'Medium',   cls: 'm' },
-            { key: 'Low',      cls: 'l' },
-          ].map(({ key, cls }) => (
-            <button
-              key={key}
-              className={`sev-card glass ${filter === key ? 'sev-card-active' : ''}`}
-              onClick={() => setFilter(f => f === key ? 'All' : key)}
-              title={`Filter by ${key}`}
-            >
-              <div className={`sev-num ${cls}`}>{breakdown[key] ?? 0}</div>
-              <div className="sev-label">{key}</div>
-              <div className={`sev-indicator sev-ind-${cls}`} />
-            </button>
-          ))}
-        </div>
-        <HealthGauge score={healthScore} />
-      </div>
-
-      {/* Risk banner */}
-      <div className={`risk-banner glass risk-${riskLvl.toLowerCase()}`}>
-        <div className="risk-left">
-          <div className="risk-label-row">
-            <span className="risk-overline">Overall Risk Level</span>
-          </div>
-          <span className={`risk-pill risk-${riskLvl.toLowerCase()}`}>{riskLvl}</span>
-        </div>
-        <div className="risk-stats">
-          <div className="risk-stat">
-            <span className="risk-stat-val">{summary.total_findings ?? 0}</span>
-            <span className="risk-stat-key">Total Findings</span>
-          </div>
-          <div className="risk-stat-divider" />
-          <div className="risk-stat">
-            <span className="risk-stat-val">{execution_time_seconds?.toFixed(2) ?? '—'}s</span>
-            <span className="risk-stat-key">Scan Time</span>
-          </div>
-          <div className="risk-stat-divider" />
-          <div className="risk-stat">
-            <span className="risk-stat-val">{healthScore}</span>
-            <span className="risk-stat-key">Health Score</span>
-          </div>
-        </div>
-        <div className="risk-actions">
-          <button className="export-btn" onClick={exportMarkdown}>
-            <Icon.Download /> Export Markdown
-          </button>
-          {prReport && (
-            <button className="export-btn" onClick={() => setShowPreview(p => !p)} style={{ borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', color: 'var(--violet-l)' }}>
-              <Icon.FileText /> {showPreview ? 'Close Preview' : 'Preview Report'}
-            </button>
-          )}
-          {result._submittedCode && (
-            <button
-              className="export-btn"
-              onClick={async () => {
-                if (fixedCode) { setShowFixed(f => !f); return }
-                setFixLoading(true)
-                try {
-                  const data = await api.fixAll(result._submittedCode, result._submittedLanguage || 'python', result.findings || [])
-                  setFixedCode(data.fixed_code)
-                  setShowFixed(true)
-                } catch (err) { setFixedCode('// Error generating fix: ' + err.message) ; setShowFixed(true) }
-                finally { setFixLoading(false) }
-              }}
-              disabled={fixLoading}
-              style={{ borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: 'var(--emerald-l)' }}
-            >
-              {fixLoading ? <><span className="spin" style={{ width: 12, height: 12, borderWidth: 2 }} /> Generating...</> : <><Icon.Wrench /> {showFixed ? 'Hide Fixed Code' : 'Generate Fixed Code'}</>}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Fixed Code Panel */}
-      {showFixed && fixedCode && (
-        <div className="remediation-card" style={{ marginBottom: '1.5rem' }}>
-          <div className="remediation-header">
-            <Icon.Wrench /> Complete Fixed Code
-            <button
-              className="export-btn"
-              style={{ marginLeft: 'auto', padding: '0.35rem 0.85rem', fontSize: '0.75rem', borderColor: copied ? 'var(--sev-l)' : undefined, color: copied ? 'var(--sev-l)' : undefined }}
-              onClick={() => {
-                navigator.clipboard.writeText(fixedCode)
-                setCopied(true)
-                setTimeout(() => setCopied(false), 2500)
-              }}
-            >
-              {copied ? <><Icon.CheckCircle /> Copied!</> : <><Icon.Copy /> Copy Code</>}
-            </button>
-          </div>
-          <div className="diff-container" style={{ gridTemplateColumns: '1fr', flexDirection: 'column' }}>
-            <div className="diff-panel diff-before" style={{ borderRight: 'none', borderBottom: '1px solid var(--border)', maxHeight: '280px', overflow: 'auto' }}>
-              <div className="diff-label">Original Code (With Issues)</div>
-              <pre className="diff-code">{result._submittedCode || '—'}</pre>
-            </div>
-            <div className="diff-panel diff-after" style={{ maxHeight: '280px', overflow: 'auto' }}>
-              <div className="diff-label">Fixed Code (All Issues Resolved)</div>
-              <pre className="diff-code">{fixedCode}</pre>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {prLoading && (
-        <div className="pr-report-card glass" style={{ textAlign: 'center', padding: '2rem' }}>
-          <span className="spin" style={{ width: 20, height: 20, borderWidth: 2.5 }} />
-          <div style={{ marginTop: '0.75rem', color: 'var(--text-3)', fontSize: '0.85rem' }}>Generating PR Summary Report...</div>
-        </div>
-      )}
-
-      {showPreview && prReport && (
-        <div className="pr-preview-modal glass">
-          <div className="pr-preview-header">
-            <h3>📋 Report Preview</h3>
-            <button className="run-btn" onClick={() => downloadPDF(prReport)} style={{ minWidth: 'auto', padding: '0.5rem 1.2rem' }}>
-              <span className="run-btn-idle"><Icon.Download /> Download Final PDF</span>
-            </button>
-          </div>
-          <div className="pr-preview-content">
-            <h1>{prReport.pr_title || 'Code Review Report'}</h1>
-            <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '1.5rem' }}>Generated on {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-            <h2>Executive Overview</h2>
-            <p>{prReport.executive_overview}</p>
-            <div className="pr-preview-stats">
-              <div><strong>{prReport.code_health_score ?? healthScore}/100</strong> Code Health</div>
-              <div><strong>{prReport.risk_level || 'Unknown'}</strong> Risk Level</div>
-              <div><strong>{prReport.estimated_fix_time || 'TBD'}</strong> Fix Time</div>
-            </div>
-            <h2>Severity Breakdown</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', margin: '0.5rem 0 1rem' }}>
-              <thead><tr style={{ background: '#f5f5f5' }}><th style={{ padding: '8px 12px', border: '1px solid #ddd', textAlign: 'left', fontSize: '0.75rem' }}>Severity</th><th style={{ padding: '8px 12px', border: '1px solid #ddd', textAlign: 'center', fontSize: '0.75rem' }}>Count</th></tr></thead>
-              <tbody>
-                <tr><td style={{ padding: '6px 12px', border: '1px solid #eee', color: '#dc2626', fontWeight: 700 }}>Critical</td><td style={{ padding: '6px 12px', border: '1px solid #eee', textAlign: 'center' }}>{prReport.severity_breakdown?.Critical ?? 0}</td></tr>
-                <tr><td style={{ padding: '6px 12px', border: '1px solid #eee', color: '#ea580c', fontWeight: 700 }}>High</td><td style={{ padding: '6px 12px', border: '1px solid #eee', textAlign: 'center' }}>{prReport.severity_breakdown?.High ?? 0}</td></tr>
-                <tr><td style={{ padding: '6px 12px', border: '1px solid #eee', color: '#ca8a04', fontWeight: 700 }}>Medium</td><td style={{ padding: '6px 12px', border: '1px solid #eee', textAlign: 'center' }}>{prReport.severity_breakdown?.Medium ?? 0}</td></tr>
-                <tr><td style={{ padding: '6px 12px', border: '1px solid #eee', color: '#16a34a', fontWeight: 700 }}>Low</td><td style={{ padding: '6px 12px', border: '1px solid #eee', textAlign: 'center' }}>{prReport.severity_breakdown?.Low ?? 0}</td></tr>
-              </tbody>
-            </table>
-            <h2>Detailed Findings & Recommendations</h2>
-            {(prReport.detailed_findings || prReport.prioritized_fix_list || []).map((f, idx) => (
-              <div key={idx} style={{ marginBottom: '1rem', padding: '0.75rem', background: '#fafafa', border: '1px solid #eee', borderRadius: '6px' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#111' }}>{idx + 1}. {typeof f === 'string' ? f : f.type}</div>
-                {typeof f !== 'string' && <>
-                  <div style={{ fontSize: '0.75rem', color: '#666', margin: '0.3rem 0' }}>Severity: <strong style={{ color: f.severity === 'Critical' ? '#dc2626' : f.severity === 'High' ? '#ea580c' : '#ca8a04' }}>{f.severity}</strong> · Line {f.line}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#444', margin: '0.3rem 0' }}>{f.description}</div>
-                  {f.recommendation && <div style={{ fontSize: '0.8rem', color: '#166534', background: '#f0fdf4', padding: '0.5rem', borderRadius: '4px', marginTop: '0.3rem' }}>💡 {f.recommendation}</div>}
-                </>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {prReport && !showPreview && (
-        <div className="pr-report-card glass">
-          <div className="pr-report-header">
-            <Icon.GitMerge />
-            <div>
-              <div className="pr-report-title">{prReport.pr_title || 'Code Review Report'}</div>
-              <div className="pr-report-meta">Auto-generated by PR Summary Agent</div>
-            </div>
-          </div>
-
-          <div className="pr-report-overview">{prReport.executive_overview}</div>
-
-          {prReport.prioritized_fix_list?.length > 0 && (
-            <div className="pr-fix-section">
-              <div className="pr-fix-heading">Prioritized Fix List</div>
-              <ol className="pr-fix-list">
-                {prReport.prioritized_fix_list.map((fix, i) => (
-                  <li key={i} className="pr-fix-item">{typeof fix === 'string' ? fix : `${fix.type} (Line ${fix.line})`}</li>
-                ))}
-              </ol>
-            </div>
-          )}
-
-          {prReport.positive_observations?.length > 0 && (
-            <div className="pr-positives">
-              <div className="pr-fix-heading" style={{ color: 'var(--emerald)' }}>Positive Observations</div>
-              <ul>
-                {prReport.positive_observations.map((obs, i) => (
-                  <li key={i} style={{ fontSize: '0.82rem', color: 'var(--text-2)', marginBottom: '0.3rem' }}>{obs}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="pr-report-footer">
-            <span className="chip chip-time" style={{ gap: '0.3rem' }}>
-              <Icon.Cpu /> Fix time: {prReport.estimated_fix_time || 'N/A'}
-            </span>
-            <span className="chip chip-cat" style={{ gap: '0.3rem' }}>
-              <Icon.Activity /> Health: {prReport.code_health_score ?? healthScore}/100
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Filter bar */}
-      <div className="filter-row">
-        <div className="filter-bar">
+    <div style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', gap: '2rem' }}>
+      {/* Left Column: Filters and Findings */}
+      <div>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           {filters.map(f => (
             <button
               key={f}
-              className={`filter-chip ${filter === f ? `fc-active fc-active-${f.toLowerCase()}` : ''}`}
               onClick={() => setFilter(f)}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '20px',
+                border: filter === f ? '1px solid #8083ff' : '1px solid rgba(255,255,255,0.1)',
+                background: filter === f ? 'rgba(128,131,255,0.1)' : 'transparent',
+                color: filter === f ? '#c0c1ff' : '#908fa0',
+                cursor: 'pointer'
+              }}
             >
-              {f}{f !== 'All' && ` (${breakdown[f] ?? 0})`}
+              {f} {f !== 'All' && `(${breakdown[f] ?? 0})`}
             </button>
           ))}
         </div>
-        <span className="filter-count">
-          {filtered.length} of {findings.length} findings
-        </span>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {filtered.length === 0 ? (
+             <div style={{ color: '#c7c4d7', textAlign: 'center', padding: '2rem' }}>No findings for this filter.</div>
+          ) : (
+            filtered.map((f, i) => (
+              <FindingCard
+                key={`${f.type}-${i}`}
+                finding={f}
+                idx={i}
+                code={result._submittedCode || ''}
+                language={result._submittedLanguage || 'python'}
+              />
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Findings */}
-      <div className="findings-list">
-        {filtered.length === 0 ? (
-          <div className="empty-state" style={{ padding: '3rem' }}>
-            <div className="empty-state-icon"><Icon.CheckCircle /></div>
-            <div className="empty-state-title">
-              {filter === 'All' ? 'No findings detected' : `No ${filter} severity findings`}
-            </div>
-            <div className="empty-state-sub">
-              {filter === 'All' ? 'Clean code — no security issues detected' : 'Try a different severity filter'}
+      {/* Right Column: Stats, Gauge, Fixes, PR */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="glass-panel" style={{ padding: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '8px' }}>
+          <div>
+            <h3 style={{ color: '#e4e1ed', marginBottom: '1rem' }}>Security Health</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', color: '#c7c4d7' }}>
+              <div>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#c0c1ff' }}>{summary.total_findings ?? 0}</div>
+                <div style={{ fontSize: '0.875rem' }}>Total Findings</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#c0c1ff' }}>{execution_time_seconds?.toFixed(1) ?? '—'}s</div>
+                <div style={{ fontSize: '0.875rem' }}>Scan Time</div>
+              </div>
             </div>
           </div>
-        ) : (
-          filtered.map((f, i) => (
-            <FindingCard
-              key={`${f.type}-${i}`}
-              finding={f}
-              idx={i}
-              code={result._submittedCode || ''}
-              language={result._submittedLanguage || 'python'}
-            />
-          ))
+          <HealthGauge score={healthScore} />
+        </div>
+
+        <div className={`glass-panel risk-${riskLvl.toLowerCase()}`} style={{ padding: '1.5rem', borderRadius: '8px', borderLeft: `4px solid var(--sev-${sevCls(riskLvl)})` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <span style={{ fontWeight: 'bold', color: '#e4e1ed' }}>Overall Risk Level</span>
+            <span style={{ padding: '0.25rem 0.75rem', borderRadius: '12px', background: `var(--sev-${sevCls(riskLvl)})`, color: '#fff', fontSize: '0.875rem', fontWeight: 'bold' }}>{riskLvl}</span>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <button onClick={exportMarkdown} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#e4e1ed', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
+              <Icon.Download /> Export
+            </button>
+            {prReport && (
+              <button onClick={() => setShowPreview(p => !p)} style={{ flex: 1, padding: '0.75rem', background: 'rgba(128,131,255,0.1)', border: '1px solid rgba(128,131,255,0.3)', color: '#c0c1ff', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
+                <Icon.FileText /> {showPreview ? 'Close Report' : 'PR Report'}
+              </button>
+            )}
+            {result._submittedCode && (
+              <button
+                onClick={async () => {
+                  if (fixedCode) { setShowFixed(f => !f); return }
+                  setFixLoading(true)
+                  try {
+                    const data = await api.fixAll(result._submittedCode, result._submittedLanguage || 'python', result.findings || [])
+                    setFixedCode(data.fixed_code)
+                    setShowFixed(true)
+                  } catch (err) { setFixedCode('// Error generating fix: ' + err.message) ; setShowFixed(true) }
+                  finally { setFixLoading(false) }
+                }}
+                disabled={fixLoading}
+                style={{ flex: 1, padding: '0.75rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
+              >
+                {fixLoading ? <><span className="spin" style={{ width: 12, height: 12, borderWidth: 2 }} /> Loading...</> : <><Icon.Wrench /> {showFixed ? 'Hide Fix' : 'Auto Fix All'}</>}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Fixed Code Panel */}
+        {showFixed && fixedCode && (
+          <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', color: '#e4e1ed', fontWeight: 'bold' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon.Wrench /> Complete Fixed Code</div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(fixedCode)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2500)
+                }}
+                style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#e4e1ed', padding: '0.25rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}
+              >
+                {copied ? 'Copied!' : 'Copy Code'}
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#908fa0', marginBottom: '0.5rem' }}>Original Code</div>
+                <pre style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '4px', overflowX: 'auto', maxHeight: '200px', fontSize: '0.875rem', color: '#e4e1ed' }}>{result._submittedCode}</pre>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#10b981', marginBottom: '0.5rem' }}>Fixed Code</div>
+                <pre style={{ background: 'rgba(16,185,129,0.05)', padding: '1rem', borderRadius: '4px', overflowX: 'auto', maxHeight: '300px', fontSize: '0.875rem', color: '#e4e1ed' }}>{fixedCode}</pre>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {prLoading && (
+          <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', color: '#c7c4d7' }}>
+            <span className="spin" style={{ width: 24, height: 24, borderWidth: 2, display: 'inline-block', marginBottom: '1rem' }} />
+            <div>Generating PR Summary Report...</div>
+          </div>
+        )}
+
+        {showPreview && prReport && (
+          <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ color: '#e4e1ed' }}>📋 PR Report Preview</h3>
+              <button onClick={() => downloadPDF(prReport)} style={{ background: '#8083ff', color: '#1000a9', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Icon.Download /> PDF
+              </button>
+            </div>
+            <div style={{ color: '#c7c4d7', fontSize: '0.875rem' }}>
+              <h2 style={{ color: '#c0c1ff', marginBottom: '0.5rem' }}>{prReport.pr_title || 'Code Review Report'}</h2>
+              <p style={{ marginBottom: '1.5rem' }}>{prReport.executive_overview}</p>
+              
+              <h4 style={{ color: '#e4e1ed', marginBottom: '0.5rem' }}>Prioritized Fix List</h4>
+              <ul style={{ paddingLeft: '1.5rem', marginBottom: '1.5rem' }}>
+                {(prReport.prioritized_fix_list || []).map((f, i) => (
+                  <li key={i} style={{ marginBottom: '0.5rem' }}>{typeof f === 'string' ? f : `${f.type} (Line ${f.line})`}</li>
+                ))}
+              </ul>
+              
+              <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Icon.Cpu /> Fix time: {prReport.estimated_fix_time || 'N/A'}</span>
+                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Icon.Activity /> Health: {prReport.code_health_score ?? healthScore}/100</span>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -1174,39 +952,39 @@ function SecurityWidget({ result }) {
   return (
     <div className="security-widget-container">
       {open && (
-        <div className="security-widget-panel glass">
-          <div className="security-widget-header">
+        <div className="security-widget-panel glass" style={{ background: '#1f1f27', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="security-widget-header" style={{ background: '#13131b', padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff' }}>Lyca, Your Chatbot</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Powered by Groq AI</div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#c0c1ff' }}>Lyca AI</div>
+              <div style={{ fontSize: '0.7rem', color: '#908fa0' }}>Security Assistant</div>
             </div>
-            <button className="security-widget-close" onClick={() => setOpen(false)}>
+            <button className="security-widget-close" onClick={() => setOpen(false)} style={{ background: 'transparent', border: 'none', color: '#e4e1ed', cursor: 'pointer' }}>
               <Icon.X />
             </button>
           </div>
 
-          <div className="security-widget-body">
-            <div className="chat-messages" style={{ padding: '1rem', flex: 1, minHeight: 0 }}>
+          <div className="security-widget-body" style={{ display: 'flex', flexDirection: 'column', height: '400px' }}>
+            <div className="chat-messages" style={{ padding: '1rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {messages.map((msg, i) => (
-                <div key={i} className={`msg msg-${msg.role}`}>
-                  <div className="msg-content" style={{ width: '100%' }}>
+                <div key={i} className={`msg msg-${msg.role}`} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                  <div className="msg-content" style={{ background: msg.role === 'user' ? '#8083ff' : '#34343d', color: msg.role === 'user' ? '#1000a9' : '#e4e1ed', padding: '0.75rem 1rem', borderRadius: '12px', borderBottomRightRadius: msg.role === 'user' ? 0 : '12px', borderBottomLeftRadius: msg.role === 'bot' ? 0 : '12px', fontSize: '0.875rem' }}>
                     <div className="msg-bubble">{msg.text}</div>
                     {msg.codeExample && (
-                      <pre className="chat-code-block">{msg.codeExample}</pre>
+                      <pre className="chat-code-block" style={{ marginTop: '0.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px', overflowX: 'auto', fontSize: '0.75rem' }}>{msg.codeExample}</pre>
                     )}
                     {msg.sources?.length > 0 && (
-                      <div className="msg-sources">
+                      <div className="msg-sources" style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                         {msg.sources.map((s, j) => (
-                          <span key={j} className="msg-source">
+                          <span key={j} className="msg-source" style={{ fontSize: '0.7rem', background: 'rgba(0,0,0,0.2)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
                             <Icon.FileText /> {s}
                           </span>
                         ))}
                       </div>
                     )}
                     {msg.relatedQuestions?.length > 0 && (
-                      <div className="chat-related">
+                      <div className="chat-related" style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         {msg.relatedQuestions.map((rq, j) => (
-                          <button key={j} className="related-question-chip" onClick={() => send(rq)}>{rq}</button>
+                          <button key={j} className="related-question-chip" onClick={() => send(rq)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'inherit', padding: '0.4rem 0.75rem', borderRadius: '12px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left' }}>{rq}</button>
                         ))}
                       </div>
                     )}
@@ -1214,14 +992,12 @@ function SecurityWidget({ result }) {
                 </div>
               ))}
               {loading && (
-                <div className="msg msg-bot">
-                  <div className="msg-content">
-                    <div className="msg-bubble">
-                      <div className="typing">
-                        <span className="typing-dot" />
-                        <span className="typing-dot" />
-                        <span className="typing-dot" />
-                      </div>
+                <div className="msg msg-bot" style={{ alignSelf: 'flex-start' }}>
+                  <div className="msg-content" style={{ background: '#34343d', padding: '0.75rem 1rem', borderRadius: '12px', borderBottomLeftRadius: 0 }}>
+                    <div className="typing" style={{ display: 'flex', gap: '4px' }}>
+                      <span className="typing-dot" style={{ width: 6, height: 6, background: '#908fa0', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both' }} />
+                      <span className="typing-dot" style={{ width: 6, height: 6, background: '#908fa0', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '0.2s' }} />
+                      <span className="typing-dot" style={{ width: 6, height: 6, background: '#908fa0', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both', animationDelay: '0.4s' }} />
                     </div>
                   </div>
                 </div>
@@ -1230,18 +1006,18 @@ function SecurityWidget({ result }) {
             </div>
 
             {messages.length < 3 && (
-              <div className="security-widget-suggestions">
+              <div className="security-widget-suggestions" style={{ padding: '0 1rem 0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {SUGGESTIONS.map((s, i) => (
-                  <button key={i} className="suggest-chip" onClick={() => send(s)}>{s}</button>
+                  <button key={i} className="suggest-chip" onClick={() => send(s)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#c7c4d7', padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.75rem', cursor: 'pointer' }}>{s}</button>
                 ))}
               </div>
             )}
 
-            <div className="chat-input-bar">
+            <div className="chat-input-bar" style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: '0.5rem' }}>
               <textarea
                 ref={inputRef}
                 className="chat-input"
-                style={{ minHeight: '38px', padding: '0.55rem 0.8rem', fontSize: '0.8rem' }}
+                style={{ flex: 1, minHeight: '38px', padding: '0.55rem 0.8rem', fontSize: '0.875rem', background: '#13131b', border: '1px solid rgba(255,255,255,0.1)', color: '#e4e1ed', borderRadius: '20px', resize: 'none', outline: 'none' }}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 placeholder="Ask Lyca anything..."
@@ -1253,7 +1029,7 @@ function SecurityWidget({ result }) {
                   }
                 }}
               />
-              <button className="send-btn" onClick={() => send()} disabled={!input.trim() || loading} style={{ width: 38, height: 38 }}>
+              <button className="send-btn" onClick={() => send()} disabled={!input.trim() || loading} style={{ width: 38, height: 38, borderRadius: '50%', background: input.trim() && !loading ? '#8083ff' : '#34343d', color: input.trim() && !loading ? '#1000a9' : '#908fa0', border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {loading ? <span className="spin" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <Icon.Send />}
               </button>
             </div>
@@ -1265,9 +1041,9 @@ function SecurityWidget({ result }) {
         className={`security-widget-fab ${open ? 'fab-open' : ''}`}
         onClick={() => setOpen(!open)}
         aria-label="Toggle Security Assistant"
+        style={{ width: 56, height: 56, borderRadius: '50%', background: '#8083ff', color: '#1000a9', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s' }}
       >
-        <span className="fab-icon-default"><Icon.Shield /></span>
-        <span className="fab-icon-close"><Icon.X /></span>
+        {open ? <Icon.X /> : <Icon.MessageSquare />}
       </button>
     </div>
   )
@@ -1280,6 +1056,8 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [toast, setToast] = useState(null)
   const [online, setOnline] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [progress, setProgress] = useState(null)
 
   useEffect(() => {
     const check = () => api.ping().then(ok => setOnline(ok))
@@ -1302,64 +1080,86 @@ export default function App() {
     }
   }, [])
 
-  const resultCount = result?.summary?.total_findings
+  const backendOk = online !== false
 
   return (
-    <div className="app">
-      {/* Animated orb background */}
-      <div className="bg-canvas" aria-hidden="true">
-        <div className="orb orb-1" />
-        <div className="orb orb-2" />
-        <div className="orb orb-3" />
-      </div>
+    <div className="app sentinel-app" style={{ minHeight: '100vh', background: '#13131b', color: '#e4e1ed', fontFamily: 'Inter, sans-serif' }}>
+      {/* Top Navbar */}
+      <header className="sentinel-navbar" style={{ height: '80px', position: 'fixed', top: 0, left: 0, right: 0, background: 'rgba(19, 19, 27, 0.7)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', zIndex: 100 }}>
+        <div className="sentinel-brand" style={{ fontWeight: 'bold', fontSize: '1.25rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#c0c1ff' }}>
+          <Icon.Shield /> SENTINEL_AI
+        </div>
+        <nav className="sentinel-nav" style={{ display: 'flex', gap: '1rem' }}>
+          <button className={`sentinel-nav-btn ${tab==='analyze' ? 'active' : ''}`} onClick={()=>setTab('analyze')} style={{ background: tab==='analyze' ? 'rgba(128,131,255,0.1)' : 'transparent', color: tab==='analyze' ? '#c0c1ff' : '#908fa0', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: tab==='analyze' ? 'bold' : 'normal' }}>
+            <Icon.Code /> Scanner
+          </button>
+          <button className={`sentinel-nav-btn ${tab==='results' ? 'active' : ''}`} onClick={()=>setTab('results')} disabled={!result} style={{ background: tab==='results' ? 'rgba(128,131,255,0.1)' : 'transparent', color: tab==='results' ? '#c0c1ff' : '#908fa0', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: result ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: tab==='results' ? 'bold' : 'normal', opacity: result ? 1 : 0.5 }}>
+            <Icon.BarChart /> Results
+          </button>
+        </nav>
+        <div className="sentinel-status" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}>
+          <span className={`status-dot ${backendOk ? '' : 'offline'}`} style={{ width: 8, height: 8, borderRadius: '50%', background: backendOk ? '#10b981' : '#ef4444' }}/>
+          <span className="status-label" style={{ color: backendOk ? '#10b981' : '#ef4444' }}>{backendOk ? 'Systems Online' : 'Offline'}</span>
+        </div>
+      </header>
 
-      {/* Navbar */}
-      <nav className="navbar" role="navigation" aria-label="Main navigation">
-        <div className="navbar-brand">
-          <div className="brand-shield">
-            <Icon.Shield />
-          </div>
-          <div>
-            <div className="brand-name">
-              <span>Smart Code Inspection</span> Platform
+      {/* Main Layout (Sidebar + Content) */}
+      <div className="sentinel-layout" style={{ display: 'flex', paddingTop: '80px', minHeight: '100vh' }}>
+        
+        {/* Left Sidebar */}
+        <aside className="sentinel-sidebar" style={{ width: '256px', position: 'fixed', top: '80px', bottom: 0, left: 0, background: 'rgba(19, 19, 27, 0.7)', borderRight: '1px solid rgba(255,255,255,0.08)', padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
+          <div className="sidebar-section-title" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#908fa0', marginBottom: '0.5rem' }}>Multi-Agent Engine</div>
+          <p className="sidebar-status-text" style={{ fontSize: '0.875rem', color: analyzing ? '#c0c1ff' : '#e4e1ed', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {analyzing && <span className="spin" style={{ width: 12, height: 12, borderWidth: 2 }} />}
+            {analyzing ? 'Active Scanning...' : 'Ready'}
+          </p>
+          
+          {/* Agent steps shown when analyzing or after */}
+          {(analyzing || progress) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+              {STEPS.map((step, i) => {
+                const cur = STEP_ORDER.indexOf(progress)
+                const status = cur === -1 ? 'waiting' : i < cur ? 'done' : i === cur ? 'running' : 'waiting'
+                return (
+                  <div key={step.key} className="sidebar-agent-step" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', opacity: status === 'waiting' ? 0.5 : 1 }}>
+                    <div style={{ color: status === 'done' ? '#10b981' : status === 'running' ? '#c0c1ff' : '#908fa0' }}>
+                      {status === 'running' ? <span className="spin" style={{ width: 14, height: 14, borderWidth: 2, display: 'block' }} /> : status === 'done' ? <Icon.CheckCircle /> : <step.Icon />}
+                    </div>
+                    <span style={{ fontSize: '0.875rem', color: status === 'running' ? '#c0c1ff' : '#c7c4d7' }}>{step.text}</span>
+                  </div>
+                )
+              })}
             </div>
-            <div className="brand-tag">Security &amp; Quality Review Platform</div>
-          </div>
-        </div>
-
-        <div className="nav-tabs" role="tablist">
-          {[
-            { key: 'analyze', Icon: Icon.Code,         label: 'Analyze' },
-            { key: 'results', Icon: Icon.BarChart,      label: resultCount != null ? `Results (${resultCount})` : 'Results' },
-          ].map(t => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={tab === t.key}
-              className={`nav-tab ${tab === t.key ? 'active' : ''}`}
-              onClick={() => setTab(t.key)}
-            >
-              <t.Icon />
-              <span>{t.label}</span>
+          )}
+          
+          {/* Nav links */}
+          <div className="sidebar-section-title" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#908fa0', marginBottom: '1rem' }}>Navigation</div>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+            <a className={`sidebar-link ${tab==='analyze' ? 'active' : ''}`} onClick={()=>setTab('analyze')} style={{ color: tab==='analyze' ? '#c0c1ff' : '#c7c4d7', cursor: 'pointer', fontSize: '0.875rem', padding: '0.5rem', borderRadius: '4px', background: tab==='analyze' ? 'rgba(255,255,255,0.05)' : 'transparent', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Icon.Code /> Scanner</a>
+            <a className={`sidebar-link ${tab==='results' ? 'active' : ''}`} onClick={()=>{if(result) setTab('results')}} style={{ color: tab==='results' ? '#c0c1ff' : '#c7c4d7', cursor: result ? 'pointer' : 'not-allowed', fontSize: '0.875rem', padding: '0.5rem', borderRadius: '4px', background: tab==='results' ? 'rgba(255,255,255,0.05)' : 'transparent', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: result ? 1 : 0.5 }}><Icon.BarChart /> Vulnerabilities</a>
+          </nav>
+          
+          {/* Bottom: New Analysis button */}
+          {result && (
+            <button onClick={() => setTab('analyze')} style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e4e1ed', padding: '0.75rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', gap: '0.5rem', alignItems: 'center' }}>
+              <Icon.Play /> New Analysis
             </button>
-          ))}
-        </div>
+          )}
+        </aside>
 
-        <div className="nav-status">
-          <span className={`status-dot ${online === false ? 'offline' : ''}`} />
-          {online === false ? <Icon.WifiOff /> : <Icon.Wifi />}
-        </div>
-      </nav>
+        {/* Main Content Area */}
+        <main className="sentinel-main" style={{ marginLeft: '256px', flex: 1, padding: '2rem' }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            {tab === 'analyze' && (
+              <AnalyzeTab onResult={handleResult} onTabSwitch={setTab} setAnalyzing={setAnalyzing} progress={progress} setProgress={setProgress} />
+            )}
+            {tab === 'results' && (
+              <ResultsTab result={result} onNewAnalysis={() => setTab('analyze')} />
+            )}
+          </div>
+        </main>
 
-      {/* Content */}
-      <main className="main" role="main">
-        {tab === 'analyze' && (
-          <AnalyzeTab onResult={handleResult} onTabSwitch={setTab} />
-        )}
-        {tab === 'results' && (
-          <ResultsTab result={result} onNewAnalysis={() => setTab('analyze')} />
-        )}
-      </main>
+      </div>
 
       {/* Floating Security Widget */}
       <SecurityWidget result={result} />
