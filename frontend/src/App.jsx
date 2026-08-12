@@ -813,7 +813,7 @@ function ResultsTab({ result, onNewAnalysis }) {
                 disabled={fixLoading}
                 style={{ flex: 1, padding: '0.75rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
               >
-                {fixLoading ? <><span className="spin" style={{ width: 12, height: 12, borderWidth: 2 }} /> Loading...</> : <><Icon.Wrench /> {showFixed ? 'Hide Fix' : 'Auto Fix All'}</>}
+                {fixLoading ? <><span className="spin" style={{ width: 12, height: 12, borderWidth: 2 }} /> Loading...</> : <><Icon.Wrench /> {showFixed ? 'Hide Fix' : 'Generate Fixed Code'}</>}
               </button>
             )}
           </div>
@@ -960,7 +960,7 @@ function SecurityWidget({ result }) {
         <div className="security-widget-panel glass" style={{ background: '#1f1f27', border: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="security-widget-header" style={{ background: '#13131b', padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#c0c1ff' }}>Lyca AI</div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#c0c1ff' }}>Lyca, Your Chatbot</div>
               <div style={{ fontSize: '0.7rem', color: '#908fa0' }}>Security Assistant</div>
             </div>
             <button className="security-widget-close" onClick={() => setOpen(false)} style={{ background: 'transparent', border: 'none', color: '#e4e1ed', cursor: 'pointer' }}>
