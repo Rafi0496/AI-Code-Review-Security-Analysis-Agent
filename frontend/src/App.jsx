@@ -234,24 +234,26 @@ function HealthGauge({ score }) {
   const label = score <= 40 ? 'Poor' : score <= 70 ? 'Fair' : 'Good'
 
   return (
-    <div className="health-gauge">
-      <svg width="140" height="140" viewBox="0 0 140 140">
-        <circle cx="70" cy="70" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
-        <circle
-          cx="70" cy="70" r={radius} fill="none"
-          stroke={color} strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform="rotate(-90 70 70)"
-          style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s ease' }}
-        />
-      </svg>
-      <div className="health-gauge-center">
-        <div className="health-gauge-score" style={{ color }}>{animatedScore}</div>
-        <div className="health-gauge-label">{label}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+      <div className="health-gauge" style={{ width: 140, height: 140, position: 'relative' }}>
+        <svg width="140" height="140" viewBox="0 0 140 140" style={{ position: 'absolute', top: 0, left: 0 }}>
+          <circle cx="70" cy="70" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+          <circle
+            cx="70" cy="70" r={radius} fill="none"
+            stroke={color} strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            transform="rotate(-90 70 70)"
+            style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s ease' }}
+          />
+        </svg>
+        <div className="health-gauge-center" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="health-gauge-score" style={{ color, fontSize: '2.5rem', fontWeight: 800, lineHeight: 1 }}>{animatedScore}</div>
+          <div className="health-gauge-label" style={{ fontSize: '0.75rem', color: 'var(--on-surface-var)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.2rem' }}>{label}</div>
+        </div>
       </div>
-      <div className="health-gauge-title">Code Health Score</div>
+      <div className="health-gauge-title" style={{ fontSize: '0.75rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Code Health Score</div>
     </div>
   )
 }
@@ -722,9 +724,11 @@ function ResultsTab({ result, onNewAnalysis }) {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', gap: '2rem' }}>
-      {/* Left Column: Filters and Findings */}
-      <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <AnalyticsDashboard result={result} />
+      <div style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', gap: '2rem' }}>
+        {/* Left Column: Filters and Findings */}
+        <div>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           {filters.map(f => (
             <button
@@ -878,6 +882,7 @@ function ResultsTab({ result, onNewAnalysis }) {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }
@@ -1087,7 +1092,7 @@ export default function App() {
       {/* Top Navbar */}
       <header className="sentinel-navbar" style={{ height: '80px', position: 'fixed', top: 0, left: 0, right: 0, background: 'rgba(19, 19, 27, 0.7)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', zIndex: 100 }}>
         <div className="sentinel-brand" style={{ fontWeight: 'bold', fontSize: '1.25rem', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#c0c1ff' }}>
-          <Icon.Shield /> SENTINEL_AI
+          <Icon.Shield /> AI Code Analyzer
         </div>
         <nav className="sentinel-nav" style={{ display: 'flex', gap: '1rem' }}>
           <button className={`sentinel-nav-btn ${tab==='analyze' ? 'active' : ''}`} onClick={()=>setTab('analyze')} style={{ background: tab==='analyze' ? 'rgba(128,131,255,0.1)' : 'transparent', color: tab==='analyze' ? '#c0c1ff' : '#908fa0', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: tab==='analyze' ? 'bold' : 'normal' }}>
