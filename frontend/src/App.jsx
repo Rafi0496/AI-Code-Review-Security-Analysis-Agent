@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts'
 import './styles/index.css'
 import { api } from './api/client'
 
@@ -46,10 +47,113 @@ def process(a, b, c, d, e, f, g):
     pass
 `
 
+function downloadPDF(prData) {
+  const findingsRows = (prData.detailed_findings || prData.prioritized_fix_list || []).map((f, i) => {
+    if (typeof f === 'string') return `<tr><td>${i+1}</td><td>${f}</td><td>—</td><td>—</td><td>—</td></tr>`
+    return `<tr>
+      <td>${i+1}</td>
+      <td><strong>${f.type || 'Issue'}</strong></td>
+      <td style="text-align:center">${f.severity || '—'}</td>
+      <td style="text-align:center">${f.line || '—'}</td>
+      <td>${f.description || '—'}</td>
+    </tr>`
+  }).join('')
+
+  const recommendationRows = (prData.detailed_findings || prData.prioritized_fix_list || []).map((f, i) => {
+    if (typeof f === 'string') return ''
+    if (!f.recommendation) return ''
+    return `<tr><td><strong>${f.type || 'Issue'}</strong> (Line ${f.line || '?'})</td><td>${f.recommendation}</td></tr>`
+  }).filter(Boolean).join('')
+
+  const criticalList = (prData.top_critical_findings || []).map(f => {
+    if (typeof f === 'string') return `<li>${f}</li>`
+    return `<li><strong>${f.type || 'Issue'}</strong> (Line ${f.line || '?'}): ${f.impact || f.description || '—'}</li>`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Code Review Report</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; color: #000; padding: 48px; line-height: 1.7; font-size: 13px; background: #fff; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; border-bottom: 2px solid #000; padding-bottom: 12px; }
+  h2 { font-size: 16px; font-weight: 700; margin: 28px 0 10px; border-bottom: 1px solid #000; padding-bottom: 6px; }
+  p { margin-bottom: 10px; }
+  .meta { font-size: 12px; color: #000; margin-bottom: 24px; }
+  .score-row { display: flex; gap: 32px; margin: 16px 0 24px; padding: 16px; border: 1px solid #000; }
+  .score-item { display: flex; flex-direction: column; }
+  .score-val { font-size: 28px; font-weight: 700; color: #000; }
+  .score-lbl { font-size: 11px; color: #000; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid #000; font-size: 12px; vertical-align: top; }
+  th { background: #fff; font-weight: 700; border-bottom: 2px solid #000; }
+  ol, ul { margin: 8px 0 8px 24px; }
+  li { margin-bottom: 6px; }
+  .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #000; font-size: 11px; color: #000; }
+  @media print { body { padding: 24px; } }
+</style>
+</head><body>
+<h1>${prData.pr_title || 'Code Review Report'}</h1>
+<div class="meta">Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} &bull; AI Code Analyzer</div>
+
+<h2>1. Executive Overview</h2>
+<p>${prData.executive_overview || 'No overview available.'}</p>
+
+<div class="score-row">
+  <div class="score-item"><span class="score-val">${prData.code_health_score ?? '—'}/100</span><span class="score-lbl">Code Health Score</span></div>
+  <div class="score-item"><span class="score-val">${prData.risk_level || '—'}</span><span class="score-lbl">Risk Level</span></div>
+  <div class="score-item"><span class="score-val">${prData.estimated_fix_time || '—'}</span><span class="score-lbl">Est. Fix Time</span></div>
+</div>
+
+<h2>2. Severity Breakdown</h2>
+<table>
+  <tr><th>Severity</th><th>Count</th><th>Impact</th></tr>
+  <tr><td><strong>Critical</strong></td><td>${prData.severity_breakdown?.Critical ?? 0}</td><td>Immediate exploitation risk — fix before merge</td></tr>
+  <tr><td><strong>High</strong></td><td>${prData.severity_breakdown?.High ?? 0}</td><td>Significant risk — fix within 24 hours</td></tr>
+  <tr><td><strong>Medium</strong></td><td>${prData.severity_breakdown?.Medium ?? 0}</td><td>Code quality concern — fix within sprint</td></tr>
+  <tr><td><strong>Low</strong></td><td>${prData.severity_breakdown?.Low ?? 0}</td><td>Minor improvement — fix when convenient</td></tr>
+</table>
+
+${criticalList ? `<h2>3. Critical Findings & Impact</h2><ul>${criticalList}</ul>` : ''}
+
+<h2>4. Detailed Findings</h2>
+<table>
+  <tr><th>#</th><th>Issue Type</th><th>Severity</th><th>Line</th><th>Description</th></tr>
+  ${findingsRows || '<tr><td colspan="5">No detailed findings available</td></tr>'}
+</table>
+
+${recommendationRows ? `
+<h2>5. Remediation Recommendations</h2>
+<table>
+  <tr><th>Issue</th><th>Recommended Fix</th></tr>
+  ${recommendationRows}
+</table>` : ''}
+
+${prData.positive_observations?.length > 0 ? `
+<h2>6. Positive Observations</h2>
+<ul>
+${prData.positive_observations.map(o => `  <li>${o}</li>`).join('\n')}
+</ul>` : ''}
+
+<div class="footer">
+  This report was automatically generated by the AI Code Analyzer.
+  All findings are based on static analysis and AI-powered vulnerability detection.
+</div>
+</body></html>`
+
+  const printWindow = window.open('', '_blank')
+  printWindow.document.write(html)
+  printWindow.document.close()
+  printWindow.onload = () => {
+    setTimeout(() => printWindow.print(), 300)
+  }
+}
+
 export default function App() {
+  const [activeTab, setActiveTab] = useState('scanner')
   const [code, setCode] = useState('')
   const [file, setFile] = useState(null)
-  const [mode, setMode] = useState('paste') // paste or file
+  const [mode, setMode] = useState('paste')
   const [loading, setLoading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -58,8 +162,9 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [filter, setFilter] = useState('All')
   const [prReport, setPrReport] = useState(null)
+  const [prLoading, setPrLoading] = useState(false)
 
-  const [fixState, setFixState] = useState({}) // track fixes per finding
+  const [fixState, setFixState] = useState({})
 
   const runAnalysis = useCallback(async () => {
     if (mode === 'paste' && !code.trim()) return
@@ -68,6 +173,7 @@ export default function App() {
     setLoading(true)
     setAnalyzing(true)
     setResult(null)
+    setPrReport(null)
 
     try {
       await delay(500)
@@ -82,6 +188,7 @@ export default function App() {
       res._submittedCode = mode === 'file' ? '' : code
       res._submittedLanguage = res.submission?.language || detectLanguage(code)
       setResult(res)
+      setActiveTab('results')
     } catch (err) {
       console.error(err)
       alert("Analysis failed: " + err.message)
@@ -94,6 +201,7 @@ export default function App() {
   useEffect(() => {
     if (!result || prReport) return
     const fetchPR = async () => {
+      setPrLoading(true)
       try {
         const data = await api.prSummary(
           result,
@@ -103,6 +211,8 @@ export default function App() {
         setPrReport(data)
       } catch (e) {
         console.error(e)
+      } finally {
+        setPrLoading(false)
       }
     }
     fetchPR()
@@ -141,21 +251,23 @@ export default function App() {
     }
   }
 
+  // Chart Data
+  const chartData = [
+    { name: 'Critical', value: breakdown.Critical || 0, fill: '#ef4444' },
+    { name: 'High', value: breakdown.High || 0, fill: '#f97316' },
+    { name: 'Medium', value: breakdown.Medium || 0, fill: '#eab308' },
+    { name: 'Low', value: breakdown.Low || 0, fill: '#3b82f6' }
+  ].filter(d => d.value > 0)
+
   return (
     <>
       <header className="bg-surface/70 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-white/10 shadow-[0_20px_40px_rgba(99,102,241,0.15)] hidden md:flex justify-between items-center px-margin-desktop max-w-container-max mx-auto h-20 left-0 right-0">
         <div className="flex items-center gap-gutter">
-          <a className="font-headline-md text-headline-md font-black tracking-tighter text-primary" href="#">SENTINEL_AI</a>
+          <a className="font-headline-md text-headline-md font-black tracking-tighter text-primary" href="#">AI Code Analyzer</a>
           <nav className="flex items-center gap-stack-lg ml-stack-lg">
-            <a className="text-on-surface-variant hover:text-on-surface transition-colors hover:bg-primary/10 transition-all duration-300 px-3 py-2 rounded-md active:scale-95 transition-transform" href="#">Dashboard</a>
-            <a className="text-primary border-b-2 border-primary pb-1 active:scale-95 transition-transform" href="#">Code Analyzer</a>
-            <a className="text-on-surface-variant hover:text-on-surface transition-colors hover:bg-primary/10 transition-all duration-300 px-3 py-2 rounded-md active:scale-95 transition-transform" href="#">History</a>
+            <button onClick={() => setActiveTab('scanner')} className={`${activeTab === 'scanner' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant hover:text-on-surface hover:bg-primary/10'} px-3 py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold`}>Scanner</button>
+            <button onClick={() => setActiveTab('results')} disabled={!result} className={`${activeTab === 'results' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : 'hover:text-on-surface hover:bg-primary/10'} px-3 py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold`}>Results</button>
           </nav>
-        </div>
-        <div className="flex items-center gap-stack-md">
-          <button className="text-on-surface-variant hover:text-primary transition-colors"><span className="material-symbols-outlined">notifications</span></button>
-          <button className="text-on-surface-variant hover:text-primary transition-colors"><span className="material-symbols-outlined">settings</span></button>
-          <button className="primary-gradient-button text-white px-4 py-2 rounded-lg font-label-caps text-label-caps uppercase hover:brightness-110 transition-all">Connect GitHub</button>
         </div>
       </header>
 
@@ -170,105 +282,126 @@ export default function App() {
             </div>
           </div>
           <nav className="flex-1 flex flex-col gap-2">
-            <a className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-variant/50 hover:text-on-surface rounded-lg transition-all duration-200 ease-in-out" href="#">
-              <span className="material-symbols-outlined">dashboard</span>
-              <span className="font-body-md text-body-md">Overview</span>
-            </a>
-            <a className="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container rounded-lg font-bold transition-all duration-200 ease-in-out" href="#">
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'scanner' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant'}`}>
+              <span className="material-symbols-outlined">search</span>
+              <span className="font-body-md text-body-md">Scanner Engine</span>
+            </div>
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'results' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant'}`}>
               <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
               <span className="font-body-md text-body-md">Vulnerabilities</span>
-            </a>
-            <a className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-variant/50 hover:text-on-surface rounded-lg transition-all duration-200 ease-in-out" href="#">
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3 text-on-surface-variant opacity-50 rounded-lg">
               <span className="material-symbols-outlined">account_tree</span>
               <span className="font-body-md text-body-md">Dependency Tree</span>
-            </a>
+            </div>
           </nav>
         </aside>
 
         <main className="flex-1 md:ml-64 p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full">
-          <div className="mb-section-gap">
-            <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">AI Code Analyzer</h1>
-            <p className="text-on-surface-variant">Reviewing <span className="font-code-sm text-code-sm text-primary">{mode === 'file' ? file?.name || 'Uploaded File' : 'Paste Buffer'}</span></p>
-          </div>
-
-          {/* Scanner Input Area */}
-          <div className="mb-section-gap glass-panel rounded-xl overflow-hidden border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-            <div className="bg-surface-container-low px-4 py-3 flex justify-between items-center border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-outline-variant text-sm">code</span>
-                <span className="font-code-sm text-code-sm text-on-surface-variant">Input Code</span>
+          {activeTab === 'scanner' ? (
+            <div>
+              <div className="mb-section-gap">
+                <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">AI Code Analyzer</h1>
+                <p className="text-on-surface-variant">Submit your code for multi-agent security analysis and remediation.</p>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setMode('paste')} className={`px-3 py-1 rounded text-sm ${mode === 'paste' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}>Paste</button>
-                <button onClick={() => setMode('file')} className={`px-3 py-1 rounded text-sm ${mode === 'file' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}>Upload</button>
-                {mode === 'paste' && <button onClick={loadSample} className="px-3 py-1 rounded text-sm text-on-surface-variant hover:bg-surface-variant">Sample</button>}
+
+              {/* Scanner Input Area */}
+              <div className="mb-section-gap glass-panel rounded-xl overflow-hidden border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                <div className="bg-surface-container-low px-4 py-3 flex justify-between items-center border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-outline-variant text-sm">code</span>
+                    <span className="font-code-sm text-code-sm text-on-surface-variant">Input Code</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setMode('paste')} className={`px-3 py-1 rounded text-sm ${mode === 'paste' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}>Paste</button>
+                    <button onClick={() => setMode('file')} className={`px-3 py-1 rounded text-sm ${mode === 'file' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}>Upload</button>
+                    {mode === 'paste' && <button onClick={loadSample} className="px-3 py-1 rounded text-sm text-on-surface-variant hover:bg-surface-variant">Sample</button>}
+                  </div>
+                </div>
+                
+                {mode === 'paste' ? (
+                  <div className="flex min-h-[400px] bg-[#1e1e24]">
+                    <div className="py-4 px-2 text-outline-variant text-right select-none min-w-[40px] border-r border-white/5 font-code-sm">
+                      {code.split('\n').map((_, i) => <div key={i}>{i + 1}</div>)}
+                    </div>
+                    <textarea 
+                      className="flex-1 bg-transparent border-none text-gray-300 p-4 font-code-sm resize-y outline-none"
+                      value={code}
+                      onChange={e => setCode(e.target.value)}
+                      placeholder="// Paste your source code here..."
+                      spellCheck={false}
+                      onKeyDown={e => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault()
+                          const s = e.target.selectionStart; const end = e.target.selectionEnd
+                          setCode(c => c.slice(0, s) + '    ' + c.slice(end))
+                          setTimeout(() => e.target.setSelectionRange(s + 4, s + 4), 0)
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div 
+                    className={`min-h-[400px] flex items-center justify-center flex-col m-4 rounded border-2 border-dashed ${dragOver ? 'border-primary bg-primary/5' : 'border-white/10'}`}
+                    onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={onDrop}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <input ref={fileRef} type="file" className="hidden" onChange={e => { if (e.target.files[0]) setFile(e.target.files[0]) }} />
+                    {file ? (
+                      <>
+                        <span className="material-symbols-outlined text-4xl mb-2 text-primary">description</span>
+                        <div>{file.name}</div>
+                        <button onClick={e => { e.stopPropagation(); setFile(null); setMode('paste') }} className="mt-4 px-4 py-2 bg-error/20 text-error rounded hover:bg-error/30 transition-colors">Remove File</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-4xl mb-2 text-outline-variant">upload_file</span>
+                        <div>Drop your source file here</div>
+                        <div className="text-sm text-outline-variant">or click to browse</div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="p-4 flex justify-end border-t border-white/5 bg-surface-container-low">
+                  <button 
+                    onClick={runAnalysis} 
+                    disabled={loading || !canRun} 
+                    className="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-semibold text-sm uppercase tracking-wider flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? <span className="spin"></span> : <span className="material-symbols-outlined text-lg" style={{fontVariationSettings: "'FILL' 1"}}>play_arrow</span>}
+                    {loading ? 'Analyzing...' : 'Run Analysis'}
+                  </button>
+                </div>
               </div>
             </div>
-            
-            {mode === 'paste' ? (
-              <div className="flex min-h-[300px] bg-[#1e1e24]">
-                <div className="py-4 px-2 text-outline-variant text-right select-none min-w-[40px] border-r border-white/5 font-code-sm">
-                  {code.split('\n').map((_, i) => <div key={i}>{i + 1}</div>)}
+          ) : (
+            <div>
+              <div className="mb-section-gap flex justify-between items-end">
+                <div>
+                  <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">Analysis Results</h1>
+                  <p className="text-on-surface-variant">Reviewing <span className="font-code-sm text-code-sm text-primary">{mode === 'file' ? file?.name || 'Uploaded File' : 'Paste Buffer'}</span></p>
                 </div>
-                <textarea 
-                  className="flex-1 bg-transparent border-none text-gray-300 p-4 font-code-sm resize-y outline-none"
-                  value={code}
-                  onChange={e => setCode(e.target.value)}
-                  placeholder="// Paste your source code here..."
-                  spellCheck={false}
-                  onKeyDown={e => {
-                    if (e.key === 'Tab') {
-                      e.preventDefault()
-                      const s = e.target.selectionStart; const end = e.target.selectionEnd
-                      setCode(c => c.slice(0, s) + '    ' + c.slice(end))
-                      setTimeout(() => e.target.setSelectionRange(s + 4, s + 4), 0)
-                    }
-                  }}
-                />
-              </div>
-            ) : (
-              <div 
-                className={`min-h-[300px] flex items-center justify-center flex-col m-4 rounded border-2 border-dashed ${dragOver ? 'border-primary bg-primary/5' : 'border-white/10'}`}
-                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={onDrop}
-                onClick={() => fileRef.current?.click()}
-              >
-                <input ref={fileRef} type="file" className="hidden" onChange={e => { if (e.target.files[0]) setFile(e.target.files[0]) }} />
-                {file ? (
-                  <>
-                    <span className="material-symbols-outlined text-4xl mb-2 text-primary">description</span>
-                    <div>{file.name}</div>
-                    <button onClick={e => { e.stopPropagation(); setFile(null); setMode('paste') }} className="mt-4 px-4 py-2 bg-error/20 text-error rounded hover:bg-error/30 transition-colors">Remove File</button>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-4xl mb-2 text-outline-variant">upload_file</span>
-                    <div>Drop your source file here</div>
-                    <div className="text-sm text-outline-variant">or click to browse</div>
-                  </>
+                {prReport && (
+                  <button 
+                    onClick={() => downloadPDF(prReport)}
+                    className="bg-surface-variant text-on-surface px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wider flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all duration-200 border border-white/10"
+                  >
+                    <span className="material-symbols-outlined text-lg">download</span>
+                    Download PR Summary (PDF)
+                  </button>
+                )}
+                {!prReport && prLoading && (
+                  <span className="text-outline-variant text-sm flex items-center gap-2"><span className="spin" style={{width: 14, height: 14}}></span> Generating PR Summary...</span>
                 )}
               </div>
-            )}
 
-            <div className="p-4 flex justify-end border-t border-white/5 bg-surface-container-low">
-              <button 
-                onClick={runAnalysis} 
-                disabled={loading || !canRun} 
-                className="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-semibold text-sm uppercase tracking-wider flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? <span className="spin"></span> : <span className="material-symbols-outlined text-lg" style={{fontVariationSettings: "'FILL' 1"}}>play_arrow</span>}
-                {loading ? 'Analyzing...' : 'Run Analysis'}
-              </button>
-            </div>
-          </div>
-
-          {/* Results Area */}
-          {result && (
-            <>
-              {/* Metrics Dashboard */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter mb-section-gap">
-                <div className="glass-panel rounded-xl p-stack-lg flex flex-col items-center justify-center md:col-span-4 relative overflow-hidden">
+              {/* Analytics Dashboard with Chart */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-section-gap">
+                {/* Health Score */}
+                <div className="glass-panel rounded-xl p-stack-lg flex flex-col items-center justify-center lg:col-span-4 relative overflow-hidden">
                   <div className={`absolute inset-0 bg-gradient-to-br from-${healthScore < 50 ? 'error' : healthScore < 80 ? 'risk-medium' : 'emerald-500'}/5 to-transparent z-0`}></div>
                   <div className="relative z-10 text-center">
                     <h3 className="font-label-caps text-label-caps text-outline uppercase tracking-widest mb-4">Code Health</h3>
@@ -285,19 +418,44 @@ export default function App() {
                   </div>
                 </div>
                 
-                <div className="md:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-stack-md">
+                {/* Visual Chart */}
+                <div className="glass-panel rounded-xl p-stack-md flex flex-col items-center justify-center lg:col-span-4 relative">
+                  <h3 className="font-label-caps text-label-caps text-outline uppercase tracking-widest mb-2 w-full text-center">Severity Distribution</h3>
+                  {chartData.length > 0 ? (
+                    <div style={{ width: '100%', height: 180 }}>
+                      <ResponsiveContainer>
+                        <PieChart>
+                          <Pie data={chartData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">
+                            {chartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip 
+                            contentStyle={{ backgroundColor: 'rgba(19, 19, 27, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                            itemStyle={{ color: '#fff' }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center text-outline-variant text-sm">No Vulnerabilities Detected</div>
+                  )}
+                </div>
+
+                {/* Vulnerability Counts */}
+                <div className="lg:col-span-4 grid grid-cols-2 gap-4">
                   {[
                     { label: 'Critical', count: breakdown.Critical || 0, color: 'risk-critical', icon: 'dangerous' },
                     { label: 'High', count: breakdown.High || 0, color: 'risk-high', icon: 'error' },
                     { label: 'Medium', count: breakdown.Medium || 0, color: 'risk-medium', icon: 'warning' },
                     { label: 'Low', count: breakdown.Low || 0, color: 'risk-low', icon: 'info' }
                   ].map(s => (
-                    <div key={s.label} className={`glass-panel rounded-xl p-stack-md flex flex-col justify-between border-t-2 border-t-${s.color} glass-panel-interactive transition-all ${s.count === 0 ? 'opacity-70' : ''}`}>
-                      <div className="flex justify-between items-start mb-4">
+                    <div key={s.label} className={`glass-panel rounded-xl p-4 flex flex-col justify-between border-t-2 border-t-${s.color} glass-panel-interactive transition-all ${s.count === 0 ? 'opacity-70' : ''}`}>
+                      <div className="flex justify-between items-start mb-2">
                         <span className={`font-label-caps text-label-caps text-${s.color} uppercase`}>{s.label}</span>
-                        <span className={`material-symbols-outlined text-${s.color}`} style={{fontVariationSettings: "'FILL' 1"}}>{s.icon}</span>
+                        <span className={`material-symbols-outlined text-${s.color}`} style={{fontVariationSettings: "'FILL' 1", fontSize: '18px'}}>{s.icon}</span>
                       </div>
-                      <span className="font-display-metric text-display-metric">{s.count}</span>
+                      <span className="text-3xl font-bold">{s.count}</span>
                     </div>
                   ))}
                 </div>
@@ -379,7 +537,7 @@ export default function App() {
                   </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </main>
       </div>
@@ -389,7 +547,6 @@ export default function App() {
           <div className="flex gap-4">
             <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy Policy</a>
             <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Terms of Service</a>
-            <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">API Docs</a>
           </div>
         </div>
       </footer>
