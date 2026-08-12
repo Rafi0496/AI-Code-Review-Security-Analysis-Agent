@@ -646,6 +646,107 @@ ${prData.positive_observations.map(o => `  <li>${o}</li>`).join('\n')}
   }
 }
 
+// ── ANALYTICS DASHBOARD ──────────────────────────────────────────
+function AnalyticsDashboard({ result }) {
+  if (!result || !result.summary) return null
+  const { submission = {}, execution_time_seconds = 0, summary = {}, findings = [] } = result
+  const breakdown = summary?.severity_breakdown || {}
+  const sevBreakdown = { Critical: breakdown.Critical || 0, High: breakdown.High || 0, Medium: breakdown.Medium || 0, Low: breakdown.Low || 0 }
+  const totalFindings = summary?.total_findings || 0
+
+  // Category breakdown
+  const catCount = {}
+  if (Array.isArray(findings)) {
+    findings.forEach(f => {
+      const cat = f.category || 'Other'
+      catCount[cat] = (catCount[cat] || 0) + 1
+    })
+  }
+  const topCategories = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 4)
+  const getWidth = (count) => totalFindings === 0 ? 0 : (count / totalFindings) * 100
+
+  return (
+    <div style={{ marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+        <Icon.BarChart />
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#e4e1ed', margin: 0 }}>Detailed Analytics</h2>
+        <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem', background: 'rgba(192,193,255,0.1)', color: '#c0c1ff', borderRadius: '4px', border: '1px solid rgba(192,193,255,0.2)' }}>LIVE</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+
+        {/* Code Insights */}
+        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '12px', borderTop: '2px solid rgba(192,193,255,0.4)' }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Code Insights</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {[
+              ['Language', submission?.language || 'Unknown'],
+              ['Lines of Code', submission?.lines || 0],
+              ['Scan Time', `${execution_time_seconds?.toFixed(2) || '0.00'}s`],
+              ['Total Findings', totalFindings],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--on-surface-var)' }}>{k}</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e4e1ed' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Severity Distribution */}
+        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '12px', borderTop: '2px solid rgba(239,68,68,0.5)' }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Severity Distribution</div>
+          {/* Stacked bar */}
+          <div style={{ width: '100%', height: '10px', borderRadius: '5px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)', marginBottom: '1.25rem', display: 'flex' }}>
+            <div style={{ width: `${getWidth(sevBreakdown.Critical)}%`, background: 'var(--risk-c)', transition: 'width 1s ease' }} />
+            <div style={{ width: `${getWidth(sevBreakdown.High)}%`, background: 'var(--risk-h)', transition: 'width 1s ease' }} />
+            <div style={{ width: `${getWidth(sevBreakdown.Medium)}%`, background: 'var(--risk-m)', transition: 'width 1s ease' }} />
+            <div style={{ width: `${getWidth(sevBreakdown.Low)}%`, background: 'var(--risk-l)', transition: 'width 1s ease' }} />
+          </div>
+          {/* Individual severity rows */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {[
+              ['Critical', sevBreakdown.Critical, 'var(--risk-c)'],
+              ['High',     sevBreakdown.High,     'var(--risk-h)'],
+              ['Medium',   sevBreakdown.Medium,   'var(--risk-m)'],
+              ['Low',      sevBreakdown.Low,      'var(--risk-l)'],
+            ].map(([label, count, color]) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '2px', background: color, flexShrink: 0 }} />
+                <span style={{ fontSize: '0.78rem', color: 'var(--on-surface-var)', flex: 1 }}>{label}</span>
+                <div style={{ width: 70, height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${getWidth(count)}%`, height: '100%', background: color, transition: 'width 1s ease' }} />
+                </div>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color, width: 20, textAlign: 'right' }}>{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Category Breakdown */}
+        <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '12px', borderTop: '2px solid rgba(255,183,131,0.5)' }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Top Categories</div>
+          {topCategories.length === 0 ? (
+            <div style={{ color: 'var(--on-surface-var)', fontSize: '0.82rem', textAlign: 'center', paddingTop: '1.5rem' }}>No vulnerabilities detected ✓</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              {topCategories.map(([cat, count]) => (
+                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#e4e1ed', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat}</span>
+                  <div style={{ width: 70, height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden', flexShrink: 0 }}>
+                    <div style={{ width: `${(count / totalFindings) * 100}%`, height: '100%', background: 'var(--primary)', transition: 'width 1s ease' }} />
+                  </div>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', width: 18, textAlign: 'right', flexShrink: 0 }}>{count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── RESULTS TAB ──────────────────────────────────────────────────
 function ResultsTab({ result, onNewAnalysis }) {
   const [filter, setFilter] = useState('All')
