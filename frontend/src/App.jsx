@@ -772,6 +772,7 @@ function ResultsTab({ result, onNewAnalysis }) {
   const [fixedCode, setFixedCode] = useState(null)
   const [fixLoading, setFixLoading] = useState(false)
   const [showFixed, setShowFixed] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   // Auto-fetch PR summary when result loads
   useEffect(() => {
@@ -939,18 +940,22 @@ function ResultsTab({ result, onNewAnalysis }) {
             <Icon.Wrench /> Complete Fixed Code
             <button
               className="export-btn"
-              style={{ marginLeft: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.75rem' }}
-              onClick={() => { navigator.clipboard.writeText(fixedCode); }}
+              style={{ marginLeft: 'auto', padding: '0.35rem 0.85rem', fontSize: '0.75rem', borderColor: copied ? 'var(--sev-l)' : undefined, color: copied ? 'var(--sev-l)' : undefined }}
+              onClick={() => {
+                navigator.clipboard.writeText(fixedCode)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2500)
+              }}
             >
-              <Icon.Copy /> Copy Code
+              {copied ? <><Icon.CheckCircle /> Copied!</> : <><Icon.Copy /> Copy Code</>}
             </button>
           </div>
-          <div className="diff-container" style={{ flexDirection: 'column' }}>
-            <div className="diff-panel diff-before" style={{ borderRight: 'none', borderBottom: '1px solid var(--glass-border)', maxHeight: '300px', overflow: 'auto' }}>
+          <div className="diff-container" style={{ gridTemplateColumns: '1fr', flexDirection: 'column' }}>
+            <div className="diff-panel diff-before" style={{ borderRight: 'none', borderBottom: '1px solid var(--border)', maxHeight: '280px', overflow: 'auto' }}>
               <div className="diff-label">Original Code (With Issues)</div>
               <pre className="diff-code">{result._submittedCode || '—'}</pre>
             </div>
-            <div className="diff-panel diff-after" style={{ maxHeight: '300px', overflow: 'auto' }}>
+            <div className="diff-panel diff-after" style={{ maxHeight: '280px', overflow: 'auto' }}>
               <div className="diff-label">Fixed Code (All Issues Resolved)</div>
               <pre className="diff-code">{fixedCode}</pre>
             </div>
