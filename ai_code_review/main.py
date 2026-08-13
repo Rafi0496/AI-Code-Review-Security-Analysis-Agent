@@ -48,7 +48,7 @@ async def health():
 # ── Gemini helper (primary for ALL AI tasks) ─────────────────────
 def gemini_generate(prompt: str) -> str:
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-1.5-pro',
         contents=prompt
     )
     return response.text
@@ -114,7 +114,7 @@ async def rag_query(req: RAGQueryRequest):
     try:
         context_str = f"Context from the current code review:\n{req.context}\n\n" if req.context else ""
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-pro',
             contents=f"You are a secure coding expert. Answer clearly with code examples.\n\n{context_str}User Question:\n{req.question}"
         )
         return {"answer": response.text, "sources_used": ["OWASP Top 10", "Secure Coding Guidelines"]}
@@ -356,7 +356,7 @@ Return [] if no issues. Raw JSON only, no markdown fences.
 {code[:2000]}
 ```"""
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-pro',
             contents=prompt
         )
         text = re.sub(r"```(?:json)?\n?","",response.text.strip()).strip()
@@ -374,7 +374,7 @@ Findings:
 {json.dumps(findings)[:2000]}
 """
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-pro',
             contents=prompt
         )
         text = re.sub(r"```(?:json)?\n?","",response.text.strip()).strip()
