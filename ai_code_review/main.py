@@ -86,9 +86,7 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
         parts = []
         if system_prompt:
-            parts.append({"text": f"System Instructions: {system_prompt}
-
-"})
+            parts.append({"text": f"System Instructions: {system_prompt}\n\n"})
         parts.append({"text": prompt})
         
         data = {
