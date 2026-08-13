@@ -53,7 +53,7 @@ def analysis_generate(prompt: str) -> str:
     return response.text
 
 def remediation_generate(prompt: str) -> str:
-    api_key = os.getenv("REMEDIATION_API_KEY") or os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("REMEDIATION_API_KEY") or os.getenv("REMEDATION_API_KEY") or os.getenv("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(model='gemini-1.5-pro', contents=prompt)
     return response.text
