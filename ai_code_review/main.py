@@ -47,11 +47,9 @@ async def health():
 
 # ── Gemini helper (primary for ALL AI tasks) ─────────────────────
 def gemini_generate(prompt: str) -> str:
-    response = client.models.generate_content(
-        model='gemini-1.5-pro',
-        contents=prompt
-    )
-    return response.text
+    res = groq_generate(prompt)
+    if not res: raise Exception("Groq generation failed. Ensure GROQ_API_KEY is valid.")
+    return res
 
 # ── Groq helper (fallback only) ──────────────────────────────────
 def groq_generate(prompt: str, system_prompt: str = "") -> str | None:
@@ -113,11 +111,10 @@ async def analyze_file(file: UploadFile = File(...)):
 async def rag_query(req: RAGQueryRequest):
     try:
         context_str = f"Context from the current code review:\n{req.context}\n\n" if req.context else ""
-        response = client.models.generate_content(
-            model='gemini-1.5-pro',
-            contents=f"You are a secure coding expert. Answer clearly with code examples.\n\n{context_str}User Question:\n{req.question}"
-        )
-        return {"answer": response.text, "sources_used": ["OWASP Top 10", "Secure Coding Guidelines"]}
+        prompt = f"You are a secure coding expert. Answer clearly with code examples.\n\n{context_str}User Question:\n{req.question}"
+        res = groq_generate(prompt)
+        if not res: raise Exception("Groq API failed.")
+        return {"answer": res, "sources_used": ["OWASP Top 10", "Secure Coding Guidelines"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -355,11 +352,9 @@ Return [] if no issues. Raw JSON only, no markdown fences.
 ```{language}
 {code[:2000]}
 ```"""
-        response = client.models.generate_content(
-            model='gemini-1.5-pro',
-            contents=prompt
-        )
-        text = re.sub(r"```(?:json)?\n?","",response.text.strip()).strip()
+        text = groq_generate(prompt)
+        if not text: return []
+        text = re.sub(r"```(?:json)?\n?","",text.strip()).strip()
         data = json.loads(text)
         return [f for f in data if isinstance(data,list) and all(k in f for k in ("type","description","severity"))] if isinstance(data,list) else []
     except: return []
@@ -373,11 +368,9 @@ Return ONLY raw JSON with these keys: "title" (string), "executive_summary" (str
 Findings:
 {json.dumps(findings)[:2000]}
 """
-        response = client.models.generate_content(
-            model='gemini-1.5-pro',
-            contents=prompt
-        )
-        text = re.sub(r"```(?:json)?\n?","",response.text.strip()).strip()
+        text = groq_generate(prompt)
+        if not text: raise Exception("Groq API failed")
+        text = re.sub(r"```(?:json)?\n?","",text.strip()).strip()
         return json.loads(text)
     except:
         return {"title": "Security & Quality Review", "executive_summary": f"Found {len(findings)} issues that need attention.", "estimated_fix_time": "30 mins"}
