@@ -165,6 +165,24 @@ export default function App() {
   const [prLoading, setPrLoading] = useState(false)
 
   const [fixState, setFixState] = useState({})
+  const [fixedCode, setFixedCode] = useState(null)
+  const [isFixingAll, setIsFixingAll] = useState(false)
+  const [showFixedCode, setShowFixedCode] = useState(false)
+
+  const handlePaste = async () => {
+    setMode('paste')
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText()
+        if (text) setCode(text)
+      } else {
+        alert("Clipboard API not available. Please paste manually.")
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard', err)
+      alert("Please manually paste your code. (Clipboard access denied or unsupported).")
+    }
+  }
 
   const runAnalysis = useCallback(async () => {
     if (mode === 'paste' && !code.trim()) return
@@ -174,6 +192,8 @@ export default function App() {
     setAnalyzing(true)
     setResult(null)
     setPrReport(null)
+    setFixedCode(null)
+    setShowFixedCode(false)
 
     try {
       await delay(500)
@@ -230,6 +250,26 @@ export default function App() {
     setCode(SAMPLE_CODE)
   }
 
+  const handleFixAll = async () => {
+    if (!result || !result.findings) return
+    setIsFixingAll(true)
+    setShowFixedCode(true)
+    try {
+      const res = await api.fixAll(result._submittedCode, result._submittedLanguage, result.findings)
+      if (res.status === 'success') {
+        setFixedCode(res.fixed_code)
+      } else {
+        alert("Failed to fix code: " + res.message)
+        setShowFixedCode(false)
+      }
+    } catch (err) {
+      alert("Failed to fix code: " + err.message)
+      setShowFixedCode(false)
+    } finally {
+      setIsFixingAll(false)
+    }
+  }
+
   const canRun = mode === 'paste' ? code.trim().length > 0 : !!file
 
   const findings = result?.findings || []
@@ -244,7 +284,7 @@ export default function App() {
     
     setFixState(prev => ({ ...prev, [idx]: { loading: true } }))
     try {
-      const data = await api.remediate(finding, code, result._submittedLanguage)
+      const data = await api.remediate(finding, result._submittedCode, result._submittedLanguage)
       setFixState(prev => ({ ...prev, [idx]: { loading: false, data } }))
     } catch (err) {
       setFixState(prev => ({ ...prev, [idx]: { loading: false, data: { fix_summary: 'Could not load fix: ' + err.message } } }))
@@ -267,6 +307,7 @@ export default function App() {
           <nav className="flex items-center gap-stack-lg ml-stack-lg">
             <button onClick={() => setActiveTab('scanner')} className={`${activeTab === 'scanner' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant hover:text-on-surface hover:bg-primary/10'} px-3 py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold`}>Scanner</button>
             <button onClick={() => setActiveTab('results')} disabled={!result} className={`${activeTab === 'results' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : 'hover:text-on-surface hover:bg-primary/10'} px-3 py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold`}>Results</button>
+            <button onClick={() => setActiveTab('agents')} className={`${activeTab === 'agents' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant hover:text-on-surface hover:bg-primary/10'} px-3 py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold`}>Agents Pipeline</button>
           </nav>
         </div>
       </header>
@@ -282,23 +323,73 @@ export default function App() {
             </div>
           </div>
           <nav className="flex-1 flex flex-col gap-2">
-            <div className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'scanner' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant'}`}>
+            <button onClick={() => setActiveTab('scanner')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'scanner' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant hover:bg-surface-variant'}`}>
               <span className="material-symbols-outlined">search</span>
               <span className="font-body-md text-body-md">Scanner Engine</span>
-            </div>
-            <div className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'results' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant'}`}>
+            </button>
+            <button onClick={() => { if(result) setActiveTab('results') }} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'results' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant hover:bg-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : ''}`}>
               <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
               <span className="font-body-md text-body-md">Vulnerabilities</span>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3 text-on-surface-variant opacity-50 rounded-lg">
-              <span className="material-symbols-outlined">account_tree</span>
-              <span className="font-body-md text-body-md">Dependency Tree</span>
-            </div>
+            </button>
+            <button onClick={() => setActiveTab('agents')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'agents' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant hover:bg-surface-variant'}`}>
+              <span className="material-symbols-outlined">hub</span>
+              <span className="font-body-md text-body-md">Agents Pipeline</span>
+            </button>
           </nav>
         </aside>
 
         <main className="flex-1 md:ml-64 p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full">
-          {activeTab === 'scanner' ? (
+          {activeTab === 'agents' && (
+            <div>
+              <div className="mb-section-gap">
+                <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">Agents Pipeline</h1>
+                <p className="text-on-surface-variant">Visualize the multi-agent system executing parallel tasks and analyzing code structure.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                  {/* Code Analysis Agent */}
+                  <div className="glass-panel rounded-xl p-6 border-t-2 border-primary relative overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-lg text-primary">Code Analysis Agent</h3>
+                      <span className="material-symbols-outlined text-primary" style={{fontVariationSettings: "'FILL' 1"}}>psychology</span>
+                    </div>
+                    <p className="text-sm text-on-surface-variant mb-4">Parses AST, performs semantic analysis, and flags structural code smells.</p>
+                    <div className="flex items-center gap-2">
+                       <span className={`w-2 h-2 rounded-full ${analyzing ? 'bg-primary animate-pulse' : 'bg-emerald-500'}`}></span>
+                       <span className="text-xs text-outline-variant">{analyzing ? 'Analyzing AST...' : 'Idle'}</span>
+                    </div>
+                  </div>
+
+                  {/* Security Vulnerability Agent */}
+                  <div className="glass-panel rounded-xl p-6 border-t-2 border-risk-critical relative overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-lg text-risk-critical">Security Agent</h3>
+                      <span className="material-symbols-outlined text-risk-critical" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
+                    </div>
+                    <p className="text-sm text-on-surface-variant mb-4">Cross-references OWASP Top 10 to detect injection vulnerabilities and hardcoded secrets.</p>
+                    <div className="flex items-center gap-2">
+                       <span className={`w-2 h-2 rounded-full ${analyzing ? 'bg-risk-critical animate-pulse' : 'bg-emerald-500'}`}></span>
+                       <span className="text-xs text-outline-variant">{analyzing ? 'Scanning signatures...' : 'Idle'}</span>
+                    </div>
+                  </div>
+
+                  {/* Remediation Agent */}
+                  <div className="glass-panel rounded-xl p-6 border-t-2 border-emerald-500 relative overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-lg text-emerald-500">Remediation Agent</h3>
+                      <span className="material-symbols-outlined text-emerald-500" style={{fontVariationSettings: "'FILL' 1"}}>healing</span>
+                    </div>
+                    <p className="text-sm text-on-surface-variant mb-4">Generates context-aware, completely secure code replacements for detected vulnerabilities.</p>
+                    <div className="flex items-center gap-2">
+                       <span className={`w-2 h-2 rounded-full ${isFixingAll ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+                       <span className="text-xs text-outline-variant">{isFixingAll ? 'Generating fixes...' : 'Idle'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'scanner' && (
             <div>
               <div className="mb-section-gap">
                 <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">AI Code Analyzer</h1>
@@ -313,8 +404,8 @@ export default function App() {
                     <span className="font-code-sm text-code-sm text-on-surface-variant">Input Code</span>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setMode('paste')} className={`px-3 py-1 rounded text-sm ${mode === 'paste' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}>Paste</button>
-                    <button onClick={() => setMode('file')} className={`px-3 py-1 rounded text-sm ${mode === 'file' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}>Upload</button>
+                    <button onClick={handlePaste} className={`flex items-center gap-1 px-3 py-1 rounded text-sm ${mode === 'paste' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}><span className="material-symbols-outlined" style={{fontSize: '16px'}}>content_paste</span> Paste</button>
+                    <button onClick={() => setMode('file')} className={`flex items-center gap-1 px-3 py-1 rounded text-sm ${mode === 'file' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}><span className="material-symbols-outlined" style={{fontSize: '16px'}}>upload</span> Upload</button>
                     {mode === 'paste' && <button onClick={loadSample} className="px-3 py-1 rounded text-sm text-on-surface-variant hover:bg-surface-variant">Sample</button>}
                   </div>
                 </div>
@@ -328,7 +419,7 @@ export default function App() {
                       className="flex-1 bg-transparent border-none text-gray-300 p-4 font-code-sm resize-y outline-none"
                       value={code}
                       onChange={e => setCode(e.target.value)}
-                      placeholder="// Paste your source code here..."
+                      placeholder="// Click 'Paste' to import from clipboard, or type your source code here..."
                       spellCheck={false}
                       onKeyDown={e => {
                         if (e.key === 'Tab') {
@@ -342,7 +433,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div 
-                    className={`min-h-[400px] flex items-center justify-center flex-col m-4 rounded border-2 border-dashed ${dragOver ? 'border-primary bg-primary/5' : 'border-white/10'}`}
+                    className={`min-h-[400px] flex items-center justify-center flex-col m-4 rounded border-2 border-dashed cursor-pointer transition-colors ${dragOver ? 'border-primary bg-primary/5' : 'border-white/10 hover:border-white/30'}`}
                     onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={onDrop}
@@ -377,7 +468,9 @@ export default function App() {
                 </div>
               </div>
             </div>
-          ) : (
+          )}
+          
+          {activeTab === 'results' && result && (
             <div>
               <div className="mb-section-gap flex justify-between items-end">
                 <div>
@@ -492,13 +585,24 @@ export default function App() {
                       </button>
                       
                       {fixState[idx]?.data && (
-                         <div className="mt-4 p-3 bg-black/30 rounded border border-white/5 text-sm">
+                         <div className="mt-4 p-4 bg-surface-dim rounded-lg border border-primary/20 text-sm shadow-inner relative overflow-hidden">
+                           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-primary"></div>
+                           
+                           {/* Remediation Agent Header */}
+                           <div className="flex items-center gap-2 mb-3 border-b border-white/5 pb-2">
+                             <div className="bg-primary/20 p-1.5 rounded-md">
+                               <span className="material-symbols-outlined text-primary" style={{fontSize: '16px', fontVariationSettings: "'FILL' 1"}}>healing</span>
+                             </div>
+                             <div className="font-semibold text-primary uppercase tracking-wide text-xs">Remediation Agent</div>
+                           </div>
+                           
                            <div className="font-semibold mb-1 text-emerald-400">Recommendation</div>
-                           <div className="text-gray-300 mb-3">{fixState[idx].data.fix_summary || f.recommendation}</div>
+                           <div className="text-gray-300 mb-4">{fixState[idx].data.fix_summary || f.recommendation}</div>
+                           
                            {(fixState[idx].data.before_code || fixState[idx].data.after_code) && (
                              <div className="grid grid-cols-1 gap-2 font-code-sm text-xs">
-                               <div className="bg-error/10 p-2 rounded border-l-2 border-error text-gray-300 overflow-x-auto"><span className="text-error font-bold mb-1 block">- Before</span><pre>{fixState[idx].data.before_code}</pre></div>
-                               <div className="bg-emerald-500/10 p-2 rounded border-l-2 border-emerald-500 text-gray-300 overflow-x-auto"><span className="text-emerald-500 font-bold mb-1 block">+ After</span><pre>{fixState[idx].data.after_code}</pre></div>
+                               <div className="bg-error/10 p-3 rounded border border-error/30 text-gray-300 overflow-x-auto"><span className="text-error font-bold mb-1 block">- Original</span><pre>{fixState[idx].data.before_code}</pre></div>
+                               <div className="bg-emerald-500/10 p-3 rounded border border-emerald-500/30 text-gray-300 overflow-x-auto"><span className="text-emerald-500 font-bold mb-1 block">+ Secured</span><pre>{fixState[idx].data.after_code}</pre></div>
                              </div>
                            )}
                          </div>
@@ -511,28 +615,66 @@ export default function App() {
                 <div className="lg:col-span-7 flex flex-col h-full min-h-[600px]">
                   <div className="glass-panel rounded-xl overflow-hidden flex flex-col h-full border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                     <div className="bg-surface-container-low px-4 py-3 flex justify-between items-center border-b border-white/5">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-outline-variant text-sm">code</span>
-                        <span className="font-code-sm text-code-sm text-on-surface-variant">Source Context</span>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-outline-variant text-sm">code</span>
+                          <span className="font-code-sm text-code-sm text-on-surface-variant">Source Context</span>
+                        </div>
+                        
+                        {/* Toggle Original vs Fixed */}
+                        {fixedCode && (
+                          <div className="flex bg-surface-dim rounded-md p-0.5 border border-white/5">
+                            <button onClick={() => setShowFixedCode(false)} className={`px-3 py-1 text-xs rounded-sm transition-colors ${!showFixedCode ? 'bg-surface-variant text-white' : 'text-outline-variant hover:text-white'}`}>Original</button>
+                            <button onClick={() => setShowFixedCode(true)} className={`px-3 py-1 text-xs rounded-sm transition-colors flex items-center gap-1 ${showFixedCode ? 'bg-emerald-500/20 text-emerald-400' : 'text-outline-variant hover:text-emerald-400'}`}><span className="material-symbols-outlined" style={{fontSize: '14px'}}>check_circle</span> Secured</button>
+                          </div>
+                        )}
                       </div>
+                      
+                      <button 
+                        onClick={handleFixAll} 
+                        disabled={isFixingAll || (findings.length === 0 && !fixedCode)} 
+                        className={`flex items-center gap-2 px-4 py-1.5 rounded text-sm font-semibold transition-all ${isFixingAll ? 'bg-surface-variant text-outline-variant cursor-not-allowed' : fixedCode ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-primary text-on-primary hover:brightness-110 active:scale-95'}`}
+                      >
+                        {isFixingAll ? (
+                          <><span className="spin" style={{width: 14, height: 14}}></span> Generating...</>
+                        ) : fixedCode ? (
+                          <><span className="material-symbols-outlined" style={{fontSize: '18px'}}>refresh</span> Regenerate Fix</>
+                        ) : (
+                          <><span className="material-symbols-outlined" style={{fontSize: '18px', fontVariationSettings: "'FILL' 1"}}>auto_fix</span> Generate Fixed Code</>
+                        )}
+                      </button>
                     </div>
+                    
                     <div className="bg-[#1e1e24] p-4 flex-1 overflow-auto font-code-sm text-code-sm leading-relaxed text-gray-300">
-                      <pre>
-                        <code>
-                          {(result._submittedCode || '').split('\n').map((line, i) => {
-                            const lineNum = i + 1
-                            const hasFinding = filtered.some(f => f.line === lineNum)
-                            const severityClass = hasFinding ? `code-line-highlight-critical bg-error/10` : ''
-                            
-                            return (
-                              <div key={i} id={`line-${lineNum}`} className={`flex hover:bg-white/5 transition-colors ${severityClass}`}>
-                                <span className="text-gray-500 w-10 inline-block select-none text-right pr-3 border-r border-white/5 mr-3">{lineNum}</span>
-                                <span className={hasFinding ? 'text-error' : ''}>{line || ' '}</span>
+                      {showFixedCode && fixedCode ? (
+                        <pre>
+                          <code className="text-emerald-50">
+                            {fixedCode.split('\n').map((line, i) => (
+                              <div key={i} className="flex hover:bg-emerald-500/5 transition-colors">
+                                <span className="text-emerald-500/50 w-10 inline-block select-none text-right pr-3 border-r border-emerald-500/20 mr-3">{i + 1}</span>
+                                <span>{line || ' '}</span>
                               </div>
-                            )
-                          })}
-                        </code>
-                      </pre>
+                            ))}
+                          </code>
+                        </pre>
+                      ) : (
+                        <pre>
+                          <code>
+                            {(result._submittedCode || '').split('\n').map((line, i) => {
+                              const lineNum = i + 1
+                              const hasFinding = filtered.some(f => f.line === lineNum)
+                              const severityClass = hasFinding ? `code-line-highlight-critical bg-error/10` : ''
+                              
+                              return (
+                                <div key={i} id={`line-${lineNum}`} className={`flex hover:bg-white/5 transition-colors ${severityClass}`}>
+                                  <span className="text-gray-500 w-10 inline-block select-none text-right pr-3 border-r border-white/5 mr-3">{lineNum}</span>
+                                  <span className={hasFinding ? 'text-error' : ''}>{line || ' '}</span>
+                                </div>
+                              )
+                            })}
+                          </code>
+                        </pre>
+                      )}
                     </div>
                   </div>
                 </div>
