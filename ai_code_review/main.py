@@ -155,7 +155,7 @@ async def analyze_file(file: UploadFile = File(...)):
 async def rag_query(req: RAGQueryRequest):
     try:
         context_str = f"Context from the current code review:\n{req.context}\n\n" if req.context else ""
-        prompt = f"You are a secure coding expert. Answer clearly with code examples.\n\n{context_str}User Question:\n{req.question}"
+        prompt = f"You are an elite secure coding expert specializing in OWASP Top 10 vulnerabilities. Answer clearly with highly accurate, secure code examples. Ensure all recommendations use parameterized queries and environment variables.\n\n{context_str}User Question:\n{req.question}"
         res = analysis_generate(prompt)
         if not res: raise Exception("Groq API failed.")
         return {"answer": res, "sources_used": ["OWASP Top 10", "Secure Coding Guidelines"]}
@@ -179,7 +179,7 @@ async def remediate(req: RemediateRequest):
         "before_code": "// See original code",
         "after_code": "// Apply recommended fix"
     }
-    sys_prompt = "You are a secure coding expert. Return ONLY valid JSON with keys: finding_type, severity, fix_summary, corrected_code, best_practice, owasp_reference, before_code, after_code. The before_code should show the exact vulnerable code snippet and after_code should show the corrected version."
+    sys_prompt = "You are a world-class security remediation expert. Return ONLY valid JSON with keys: finding_type, severity, fix_summary, corrected_code, best_practice, owasp_reference, before_code, after_code. Guarantee that all fixes are completely secure (e.g., use parameterized queries for SQL, environment variables for secrets, safe parsing). The before_code should show the exact vulnerable snippet and after_code should show the secure, corrected version."
     prompt = f"Finding: {json.dumps(req.finding)}\nLanguage: {req.language}\nCode:\n{req.code[:1500]}\nProvide the requested JSON remediation."
     
     # Try Gemini first (reliable)
@@ -271,7 +271,7 @@ async def fix_all_code(req: FixAllRequest):
     for f in req.findings[:10]:
         findings_text += f"- {f.get('type','Issue')} at line {f.get('line',0)}: {f.get('description','')}\n"
     
-    prompt = f"""You are a senior {req.language} developer. Fix ALL the security vulnerabilities and code quality issues listed below in the given code.
+    prompt = f"""You are an elite {req.language} security engineer. Fix ALL the security vulnerabilities and code quality issues listed below. You MUST implement robust, enterprise-grade security fixes (e.g. strict parameterization, environment variables, secure subprocess handling).
 
 ISSUES TO FIX:
 {findings_text}
@@ -384,7 +384,7 @@ def static_analysis(code, language):
 
 def gemini_analysis(code, language):
     try:
-        prompt = f"""Analyze this {language} code for bugs, security vulnerabilities, and code quality issues.
+        prompt = f"""Perform an exhaustive security and code quality analysis on this {language} code. Focus heavily on OWASP Top 10 vulnerabilities.
 For each issue found, provide:
 - A specific, descriptive type name (include OWASP ID if applicable)
 - A detailed description explaining WHY this is dangerous with the specific code context
