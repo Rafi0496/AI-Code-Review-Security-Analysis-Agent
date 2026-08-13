@@ -45,16 +45,24 @@ async def root():
 async def health():
     return {"status": "healthy", "version": "3.0.0"}
 
-# ── Gemini helper (primary for ALL AI tasks) ─────────────────────
-def gemini_generate(prompt: str) -> str:
-    res = groq_generate(prompt)
-    if not res: raise Exception("Groq generation failed. Ensure GROQ_API_KEY is valid.")
-    return res
+# ── AI Generators ────────────────────────────────────────────────
+def analysis_generate(prompt: str) -> str:
+    api_key = os.getenv("ANALYSIS_API_KEY") or os.getenv("GEMINI_API_KEY")
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(model='gemini-1.5-pro', contents=prompt)
+    return response.text
 
-# ── Groq helper (fallback only) ──────────────────────────────────
-def groq_generate(prompt: str, system_prompt: str = "") -> str | None:
-    api_key = os.getenv("GROQ_API_KEY")
+def remediation_generate(prompt: str) -> str:
+    api_key = os.getenv("REMEDIATION_API_KEY") or os.getenv("GEMINI_API_KEY")
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(model='gemini-1.5-pro', contents=prompt)
+    return response.text
+
+def chatbot_generate(prompt: str, system_prompt: str = "") -> str | None:
+    api_key = os.getenv("CHATBOT_API_KEY") or os.getenv("GROQ_API_KEY")
     if not api_key: return None
+    import urllib.request
+    import json
     url = "https://api.groq.com/openai/v1/chat/completions"
     messages = []
     if system_prompt:
@@ -74,8 +82,8 @@ def groq_generate(prompt: str, system_prompt: str = "") -> str | None:
         with urllib.request.urlopen(req, timeout=15) as response:
             result = json.loads(response.read().decode("utf-8"))
             return result["choices"][0]["message"]["content"]
-    except:
-        return None
+    except Exception as e:
+        raise Exception(f"Chatbot failed: {str(e)}")
 
 @app.post("/analyze/text")
 async def analyze_text(req: AnalyzeTextRequest):
@@ -112,7 +120,7 @@ async def rag_query(req: RAGQueryRequest):
     try:
         context_str = f"Context from the current code review:\n{req.context}\n\n" if req.context else ""
         prompt = f"You are a secure coding expert. Answer clearly with code examples.\n\n{context_str}User Question:\n{req.question}"
-        res = groq_generate(prompt)
+        res = analysis_generate(prompt)
         if not res: raise Exception("Groq API failed.")
         return {"answer": res, "sources_used": ["OWASP Top 10", "Secure Coding Guidelines"]}
     except Exception as e:
@@ -140,7 +148,7 @@ async def remediate(req: RemediateRequest):
     
     # Try Gemini first (reliable)
     try:
-        raw = gemini_generate(sys_prompt + "\n\n" + prompt)
+        raw = remediation_generate(sys_prompt + "\n\n" + prompt)
         text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
         result = json.loads(text)
         if "fix_summary" in result:
@@ -150,7 +158,7 @@ async def remediate(req: RemediateRequest):
     
     # Try Groq as fallback
     try:
-        raw = groq_generate(prompt, sys_prompt)
+        raw = remediation_generate(sys_prompt + "\n\n" + prompt)
         if raw:
             text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
             result = json.loads(text)
@@ -191,7 +199,7 @@ Return ONLY raw JSON with these exact keys:
 Findings: {json.dumps(findings[:30])}
 Severity Breakdown: {json.dumps(sev)}
 Health Score: {score}/100"""
-        raw = gemini_generate(prompt)
+        raw = analysis_generate(prompt)
         text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
         data = json.loads(text)
     except:
@@ -240,7 +248,7 @@ ORIGINAL CODE:
 Return ONLY the complete fixed code. Do not explain. Do not use markdown fences. Just output the corrected source code."""
     
     try:
-        fixed = gemini_generate(prompt)
+        fixed = remediation_generate(prompt)
         # Remove any markdown fences Gemini might add
         fixed = re.sub(r'^```(?:python|java)?\n?', '', fixed.strip())
         fixed = re.sub(r'\n?```$', '', fixed.strip())
@@ -276,7 +284,7 @@ User: {req.question}
 Lyca:"""
     
     try:
-        answer = gemini_generate(prompt)
+        answer = chatbot_generate(prompt)
         # Try to extract a code example if present
         code_example = ""
         code_match = re.search(r'```(?:\w+)?\n(.+?)\n```', answer, re.DOTALL)
@@ -352,7 +360,7 @@ Return [] if no issues. Raw JSON only, no markdown fences.
 ```{language}
 {code[:2000]}
 ```"""
-        text = groq_generate(prompt)
+        text = analysis_generate(prompt)
         if not text: return []
         text = re.sub(r"```(?:json)?\n?","",text.strip()).strip()
         data = json.loads(text)
@@ -368,8 +376,8 @@ Return ONLY raw JSON with these keys: "title" (string), "executive_summary" (str
 Findings:
 {json.dumps(findings)[:2000]}
 """
-        text = groq_generate(prompt)
-        if not text: raise Exception("Groq API failed")
+        text = analysis_generate(prompt)
+        if not text: raise Exception("API failed")
         text = re.sub(r"```(?:json)?\n?","",text.strip()).strip()
         return json.loads(text)
     except:
