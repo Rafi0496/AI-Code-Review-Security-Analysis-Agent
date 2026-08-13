@@ -64,7 +64,7 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
             "model": "llama-3.1-8b-instant",
             "messages": messages,
             "temperature": 0.1,
-            "max_tokens": 1024,
+            "max_tokens": 4096,
         }
         req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
             "Authorization": f"Bearer {api_key}",
@@ -91,7 +91,7 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
         
         data = {
             "contents": [{"parts": parts}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
+            "generationConfig": {"temperature": 0.1}
         }
         req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
             "Content-Type": "application/json",
@@ -412,7 +412,7 @@ Return ONLY raw JSON with these keys: "title" (string), "executive_summary" (str
 Findings:
 {json.dumps(findings)[:2000]}
 """
-        text = analysis_generate(prompt)
+        text = chatbot_generate(prompt)
         if not text: raise Exception("API failed")
         text = re.sub(r"```(?:json)?\n?","",text.strip()).strip()
         return json.loads(text)
