@@ -50,10 +50,11 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
     if not api_key:
         raise Exception("API Key is missing.")
     
+    import urllib.request
+    import json
+    
     if api_key.startswith("gsk_"):
         # Use Groq
-        import urllib.request
-        import json
         url = "https://api.groq.com/openai/v1/chat/completions"
         messages = []
         if system_prompt:
@@ -67,28 +68,47 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
         }
         req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
             "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         })
         try:
             with urllib.request.urlopen(req, timeout=15) as response:
                 result = json.loads(response.read().decode("utf-8"))
                 return result["choices"][0]["message"]["content"]
         except Exception as e:
-            raise Exception(f"Groq API failed: {str(e)}")
+            err_msg = str(e)
+            try:
+                err_msg += " " + e.read().decode("utf-8")
+            except: pass
+            raise Exception(f"Groq API failed: {err_msg}")
     else:
-        # Use Gemini
-        client = genai.Client(api_key=api_key)
+        # Use Gemini raw REST API to bypass SDK token formatting bugs
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
+        parts = []
+        if system_prompt:
+            parts.append({"text": f"System Instructions: {system_prompt}
+
+"})
+        parts.append({"text": prompt})
+        
+        data = {
+            "contents": [{"parts": parts}],
+            "generationConfig": {"temperature": 0.2}
+        }
+        req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        })
         try:
-            response = client.models.generate_content(model='gemini-1.5-pro', contents=prompt)
-            return response.text
+            with urllib.request.urlopen(req, timeout=30) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                return result["candidates"][0]["content"]["parts"][0]["text"]
         except Exception as e:
-            if "not found for API version v1beta" in str(e) or "no longer available" in str(e):
-                try:
-                    response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
-                    return response.text
-                except Exception as e2:
-                    raise Exception(f"Gemini API failed: {str(e2)}. Please use a valid AI Studio API Key (AIza...) or Groq Key (gsk_...)")
-            raise Exception(f"Gemini API failed: {str(e)}")
+            err_msg = str(e)
+            try:
+                err_msg += " " + e.read().decode("utf-8")
+            except: pass
+            raise Exception(f"Gemini API failed: {err_msg}")
 
 # ── API Wrappers ────────────────────────────────────────────────
 def analysis_generate(prompt: str) -> str:
