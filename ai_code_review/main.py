@@ -61,10 +61,10 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         data = {
-            "model": "llama-3.3-70b-versatile",
+            "model": "llama-3.1-8b-instant",
             "messages": messages,
-            "temperature": 0.3,
-            "max_tokens": 2048,
+            "temperature": 0.1,
+            "max_tokens": 1024,
         }
         req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
             "Authorization": f"Bearer {api_key}",
@@ -83,7 +83,7 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
             raise Exception(f"Groq API failed: {err_msg}")
     else:
         # Use Gemini raw REST API to bypass SDK token formatting bugs
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key={api_key}"
         parts = []
         if system_prompt:
             parts.append({"text": f"System Instructions: {system_prompt}\n\n"})
@@ -91,7 +91,7 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
         
         data = {
             "contents": [{"parts": parts}],
-            "generationConfig": {"temperature": 0.2}
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
         }
         req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
             "Content-Type": "application/json",
