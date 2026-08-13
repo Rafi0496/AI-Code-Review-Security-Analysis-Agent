@@ -463,9 +463,9 @@ export default function App() {
                       <span className="material-symbols-outlined text-primary" style={{fontVariationSettings: "'FILL' 1"}}>psychology</span>
                     </div>
                     <p className="text-sm text-on-surface-variant mb-4">Parses AST, performs semantic analysis, and flags structural code smells.</p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mt-auto pt-4 border-t border-white/5">
                        <span className={`w-2 h-2 rounded-full ${analyzing ? 'bg-primary animate-pulse' : 'bg-emerald-500'}`}></span>
-                       <span className="text-xs text-outline-variant">{analyzing ? 'Analyzing AST...' : 'Idle'}</span>
+                       <span className="text-xs text-outline-variant font-mono">{analyzing ? 'Analyzing AST...' : 'Status: Standby'}</span>
                     </div>
                   </div>
 
@@ -476,9 +476,9 @@ export default function App() {
                       <span className="material-symbols-outlined text-risk-critical" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
                     </div>
                     <p className="text-sm text-on-surface-variant mb-4">Cross-references OWASP Top 10 to detect injection vulnerabilities and hardcoded secrets.</p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mt-auto pt-4 border-t border-white/5">
                        <span className={`w-2 h-2 rounded-full ${analyzing ? 'bg-risk-critical animate-pulse' : 'bg-emerald-500'}`}></span>
-                       <span className="text-xs text-outline-variant">{analyzing ? 'Scanning signatures...' : 'Idle'}</span>
+                       <span className="text-xs text-outline-variant font-mono">{analyzing ? 'Scanning signatures...' : 'Status: Standby'}</span>
                     </div>
                   </div>
 
@@ -489,9 +489,136 @@ export default function App() {
                       <span className="material-symbols-outlined text-emerald-500" style={{fontVariationSettings: "'FILL' 1"}}>healing</span>
                     </div>
                     <p className="text-sm text-on-surface-variant mb-4">Generates context-aware, completely secure code replacements for detected vulnerabilities.</p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mt-auto pt-4 border-t border-white/5">
                        <span className={`w-2 h-2 rounded-full ${isFixingAll ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                       <span className="text-xs text-outline-variant">{isFixingAll ? 'Generating fixes...' : 'Idle'}</span>
+                       <span className="text-xs text-outline-variant font-mono">{isFixingAll ? 'Generating fixes...' : 'Status: Standby'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* System Architecture Section */}
+                <div className="mt-12">
+                  <h2 className="font-headline-md text-xl mb-6 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">account_tree</span>
+                    Universal API Architecture
+                  </h2>
+                  
+                  <div className="glass-panel rounded-2xl p-8 relative overflow-hidden border border-white/10">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
+                      
+                      {/* Frontend Layer */}
+                      <div className="flex flex-col gap-4 relative">
+                        <div className="bg-surface-dim border border-white/10 rounded-xl p-5 text-center shadow-lg relative z-10">
+                          <span className="material-symbols-outlined text-outline-variant mb-2" style={{fontSize: '32px'}}>web</span>
+                          <h4 className="font-bold text-white mb-1">React Frontend</h4>
+                          <p className="text-xs text-on-surface-variant">Client-side rendering & state</p>
+                        </div>
+                        
+                        <div className="flex-1 flex flex-col justify-center items-center py-4">
+                          <div className="w-1 h-full bg-gradient-to-b from-primary/30 to-emerald-500/30 rounded-full relative">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface-container border border-white/10 rounded-full p-2">
+                              <span className="material-symbols-outlined text-xs text-outline-variant">api</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Backend Layer */}
+                      <div className="flex flex-col gap-4 relative">
+                        <div className="bg-surface-dim border border-primary/30 rounded-xl p-5 text-center shadow-[0_0_20px_rgba(102,153,255,0.15)] relative z-10">
+                          <span className="material-symbols-outlined text-primary mb-2" style={{fontSize: '32px'}}>router</span>
+                          <h4 className="font-bold text-white mb-1">FastAPI Router</h4>
+                          <p className="text-xs text-on-surface-variant">Universal Dynamic Routing</p>
+                        </div>
+                        
+                        <div className="flex gap-4 h-full justify-between mt-4">
+                          <div className="w-full flex justify-center">
+                            <div className="w-1 h-full bg-gradient-to-b from-primary/50 to-primary/20 rounded-full relative"></div>
+                          </div>
+                          <div className="w-full flex justify-center">
+                            <div className="w-1 h-full bg-gradient-to-b from-risk-critical/50 to-risk-critical/20 rounded-full relative"></div>
+                          </div>
+                          <div className="w-full flex justify-center">
+                            <div className="w-1 h-full bg-gradient-to-b from-emerald-500/50 to-emerald-500/20 rounded-full relative"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* AI Providers Layer */}
+                      <div className="grid grid-cols-1 gap-4 relative">
+                        <div className="bg-surface-container border border-white/5 rounded-xl p-4 flex items-center gap-4 hover:bg-surface-variant transition-colors group">
+                          <div className="bg-primary/20 p-2 rounded-lg text-primary group-hover:scale-110 transition-transform">
+                            <span className="material-symbols-outlined">smart_toy</span>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-white">Chatbot Engine</h4>
+                            <p className="text-xs text-on-surface-variant">Groq LLaMA 3.3 70B</p>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-surface-container border border-white/5 rounded-xl p-4 flex items-center gap-4 hover:bg-surface-variant transition-colors group">
+                          <div className="bg-risk-critical/20 p-2 rounded-lg text-risk-critical group-hover:scale-110 transition-transform">
+                            <span className="material-symbols-outlined">plumbing</span>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-white">Scanner Engine</h4>
+                            <p className="text-xs text-on-surface-variant">Gemini Flash (REST API)</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-surface-container border border-white/5 rounded-xl p-4 flex items-center gap-4 hover:bg-surface-variant transition-colors group">
+                          <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-500 group-hover:scale-110 transition-transform">
+                            <span className="material-symbols-outlined">code_blocks</span>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-white">Remediation Engine</h4>
+                            <p className="text-xs text-on-surface-variant">Gemini Flash (REST API)</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live System Log Simulator */}
+                <div className="mt-12 mb-8">
+                  <h2 className="font-headline-md text-xl mb-6 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-outline-variant">terminal</span>
+                    Live Execution Logs
+                  </h2>
+                  <div className="bg-[#0d0d12] rounded-xl border border-white/10 p-4 font-mono text-xs overflow-hidden relative shadow-inner">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-emerald-500 to-risk-critical opacity-50"></div>
+                    <div className="flex gap-2 mb-4 border-b border-white/10 pb-2">
+                      <div className="w-3 h-3 rounded-full bg-error"></div>
+                      <div className="w-3 h-3 rounded-full bg-risk-medium"></div>
+                      <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    </div>
+                    <div className="space-y-2 text-gray-400 h-48 overflow-y-auto" style={{ textShadow: '0 0 5px rgba(255,255,255,0.1)' }}>
+                      {analyzing ? (
+                        <>
+                          <div className="text-emerald-400"><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [SYS] Initialize Multi-Agent Pipeline...</div>
+                          <div><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [AST] Parsing source code tree... OK</div>
+                          <div><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [SEC] Loading OWASP rule definitions...</div>
+                          <div className="text-primary"><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [GEMINI] Routing request via Universal API...</div>
+                          <div className="animate-pulse">_ Waiting for agent consensus...</div>
+                        </>
+                      ) : isFixingAll ? (
+                        <>
+                          <div><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [REM] Compiling vulnerability list...</div>
+                          <div className="text-emerald-400"><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [REM] Generating secure code replacements...</div>
+                          <div className="text-primary"><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [GEMINI] Hitting raw REST endpoint with context...</div>
+                          <div className="animate-pulse">_ Applying diff...</div>
+                        </>
+                      ) : (
+                        <>
+                          <div><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [SYS] System Ready. All agents idle.</div>
+                          <div><span className="text-gray-500">[{new Date().toLocaleTimeString()}]</span> [ROUTER] Universal API connections healthy.</div>
+                          <div className="text-emerald-400 opacity-70">_</div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
