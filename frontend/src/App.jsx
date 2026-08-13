@@ -149,7 +149,117 @@ ${prData.positive_observations.map(o => `  <li>${o}</li>`).join('\n')}
   }
 }
 
+
+const ChatWidget = ({ currentCode, currentFindings }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, isOpen])
+
+  const handleSend = async (e) => {
+    e?.preventDefault()
+    if (!input.trim() || isLoading) return
+    const userMsg = input.trim()
+    setInput('')
+    const history = [...messages]
+    setMessages(prev => [...prev, { role: 'user', content: userMsg }])
+    setIsLoading(true)
+    
+    try {
+      const res = await api.chat(userMsg, currentCode, currentFindings, history)
+      setMessages(prev => [...prev, { role: 'assistant', content: res.answer, code_example: res.code_example }])
+    } catch (err) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I couldn't connect to the AI. Please try again." }])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      {isOpen && (
+        <div className="bg-surface-container-low border border-white/10 rounded-2xl shadow-2xl mb-4 w-[350px] sm:w-[400px] h-[500px] flex flex-col overflow-hidden animate-in slide-in-from-bottom-5">
+          <div className="bg-surface-dim p-4 border-b border-white/5 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">smart_toy</span>
+              <h3 className="font-semibold text-on-surface">Lyca AI Chatbot</h3>
+            </div>
+            <button onClick={() => setIsOpen(false)} className="text-outline-variant hover:text-white transition-colors">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          
+          <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 bg-surface-container-lowest">
+            {messages.length === 0 && (
+              <div className="text-center text-outline-variant mt-8 text-sm">
+                Hi! Ask me anything about your code, security, or just chat!
+              </div>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex flex-col max-w-[85%] ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
+                <div className={`p-3 rounded-2xl text-sm ${m.role === 'user' ? 'bg-primary text-on-primary rounded-tr-sm' : 'bg-surface-container text-on-surface border border-white/5 rounded-tl-sm'}`}>
+                  {m.content}
+                </div>
+                {m.code_example && (
+                  <div className="mt-2 w-full max-w-full bg-[#1e1e24] p-3 rounded-lg border border-white/10 overflow-x-auto text-xs text-gray-300 font-mono">
+                    <pre><code>{m.code_example}</code></pre>
+                  </div>
+                )}
+              </div>
+            ))}
+            {isLoading && (
+              <div className="self-start bg-surface-container border border-white/5 p-3 rounded-2xl rounded-tl-sm flex gap-1 items-center">
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          
+          <div className="p-3 bg-surface-dim border-t border-white/5">
+            <form onSubmit={handleSend} className="flex gap-2">
+              <input 
+                type="text" 
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="Ask a question..." 
+                className="flex-1 bg-surface-container rounded-full px-4 py-2 text-sm text-on-surface border border-white/10 focus:outline-none focus:border-primary transition-colors"
+              />
+              <button 
+                type="submit" 
+                disabled={!input.trim() || isLoading}
+                className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all"
+              >
+                <span className="material-symbols-outlined" style={{fontSize: '20px'}}>send</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+        title="Open AI Chatbot"
+      >
+        <span className="material-symbols-outlined" style={{fontSize: '28px'}}>{isOpen ? 'close' : 'chat'}</span>
+      </button>
+    </div>
+  )
+}
+
 export default function App() {
+
   const [activeTab, setActiveTab] = useState('scanner')
   const [code, setCode] = useState('')
   const [file, setFile] = useState(null)
@@ -692,6 +802,7 @@ export default function App() {
           </div>
         </div>
       </footer>
+      <ChatWidget currentCode={result?._submittedCode} currentFindings={result?.findings} />
     </>
   )
 }

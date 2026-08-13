@@ -45,45 +45,63 @@ async def root():
 async def health():
     return {"status": "healthy", "version": "3.0.0"}
 
-# ── AI Generators ────────────────────────────────────────────────
+# ── UNIVERSAL AI ROUTER ──────────────────────────────────────────
+def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> str:
+    if not api_key:
+        raise Exception("API Key is missing.")
+    
+    if api_key.startswith("gsk_"):
+        # Use Groq
+        import urllib.request
+        import json
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        data = {
+            "model": "llama-3.3-70b-versatile",
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": 2048,
+        }
+        req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=15) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                return result["choices"][0]["message"]["content"]
+        except Exception as e:
+            raise Exception(f"Groq API failed: {str(e)}")
+    else:
+        # Use Gemini
+        client = genai.Client(api_key=api_key)
+        try:
+            response = client.models.generate_content(model='gemini-1.5-pro', contents=prompt)
+            return response.text
+        except Exception as e:
+            if "not found for API version v1beta" in str(e) or "no longer available" in str(e):
+                try:
+                    response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+                    return response.text
+                except Exception as e2:
+                    raise Exception(f"Gemini API failed: {str(e2)}. Please use a valid AI Studio API Key (AIza...) or Groq Key (gsk_...)")
+            raise Exception(f"Gemini API failed: {str(e)}")
+
+# ── API Wrappers ────────────────────────────────────────────────
 def analysis_generate(prompt: str) -> str:
     api_key = os.getenv("ANALYSIS_API_KEY") or os.getenv("GEMINI_API_KEY")
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(model='gemini-1.5-pro', contents=prompt)
-    return response.text
+    return universal_generate(prompt, api_key)
 
 def remediation_generate(prompt: str) -> str:
     api_key = os.getenv("REMEDIATION_API_KEY") or os.getenv("REMEDATION_API_KEY") or os.getenv("GEMINI_API_KEY")
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(model='gemini-1.5-pro', contents=prompt)
-    return response.text
+    return universal_generate(prompt, api_key)
 
-def chatbot_generate(prompt: str, system_prompt: str = "") -> str | None:
+def chatbot_generate(prompt: str, system_prompt: str = "") -> str:
     api_key = os.getenv("CHATBOT_API_KEY") or os.getenv("GROQ_API_KEY")
-    if not api_key: return None
-    import urllib.request
-    import json
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt})
-    data = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": messages,
-        "temperature": 0.3,
-        "max_tokens": 2048,
-    }
-    req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    })
-    try:
-        with urllib.request.urlopen(req, timeout=15) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            return result["choices"][0]["message"]["content"]
-    except Exception as e:
-        raise Exception(f"Chatbot failed: {str(e)}")
+    return universal_generate(prompt, api_key, system_prompt)
 
 @app.post("/analyze/text")
 async def analyze_text(req: AnalyzeTextRequest):
