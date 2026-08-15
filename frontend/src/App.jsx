@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts'
+import ReactMarkdown from 'react-markdown'
 import './styles/index.css'
 import { api } from './api/client'
 
@@ -216,13 +217,29 @@ const ChatWidget = ({ currentCode, currentFindings }) => {
               </div>
             )}
             {messages.map((m, i) => (
-              <div key={i} className={`flex flex-col max-w-[85%] ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
-                <div className={`p-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${m.role === 'user' ? 'bg-primary text-on-primary rounded-tr-sm' : 'bg-surface-container text-on-surface border border-white/5 rounded-tl-sm'}`}>
-                  {m.content}
-                </div>
-                {m.code_example && (
-                  <div className="mt-2 w-full max-w-full bg-[#1e1e24] p-3 rounded-lg border border-white/10 overflow-x-auto text-xs text-gray-300 font-mono">
-                    <pre><code>{m.code_example}</code></pre>
+              <div key={i} className={`flex flex-col max-w-[90%] ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
+                {m.role === 'user' ? (
+                  <div className="p-3 rounded-2xl text-sm bg-primary text-on-primary rounded-tr-sm whitespace-pre-wrap">
+                    {m.content}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl text-sm bg-surface-container text-on-surface border border-white/10 rounded-tl-sm text-gray-200 leading-relaxed overflow-x-auto w-full">
+                    <ReactMarkdown
+                      components={{
+                        pre: ({node, ...props}) => <pre className="bg-[#0f0f14] p-3 rounded-xl border border-white/10 overflow-x-auto my-2 text-xs font-mono text-emerald-400" {...props} />,
+                        code: ({node, inline, ...props}) => inline ? <code className="bg-white/10 px-1.5 py-0.5 rounded text-xs text-primary font-mono" {...props} /> : <code {...props} />,
+                        ul: ({node, ...props}) => <ul className="list-disc ml-4 my-2 space-y-1.5" {...props} />,
+                        ol: ({node, ...props}) => <ol className="list-decimal ml-4 my-2 space-y-1.5" {...props} />,
+                        li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+                        p: ({node, ...props}) => <p className="mb-2.5 last:mb-0" {...props} />,
+                        h1: ({node, ...props}) => <h1 className="text-base font-bold text-white mb-2 border-b border-white/10 pb-1" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-sm font-bold text-white mb-1.5" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="text-sm font-semibold text-primary mb-1" {...props} />,
+                        strong: ({node, ...props}) => <strong className="font-semibold text-white" {...props} />,
+                      }}
+                    >
+                      {m.content}
+                    </ReactMarkdown>
                   </div>
                 )}
               </div>
@@ -317,7 +334,6 @@ export default function App() {
     setShowFixedCode(false)
 
     try {
-      await delay(500)
       let res
       if (mode === 'file') {
         res = await api.analyzeFile(file)

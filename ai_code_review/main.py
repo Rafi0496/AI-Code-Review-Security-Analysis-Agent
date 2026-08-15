@@ -45,34 +45,33 @@ async def root():
 async def health():
     return {"status": "healthy", "version": "3.0.0"}
 
-# ── UNIVERSAL AI ROUTER ──────────────────────────────────────────
-def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> str:
-    if not api_key:
-        raise Exception("API Key is missing.")
-    
-    import urllib.request
-    import json
-    
-    if api_key.startswith("gsk_"):
-        # Use Groq
-        url = "https://api.groq.com/openai/v1/chat/completions"
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-        data = {
-            "model": "llama-3.1-8b-instant",
-            "messages": messages,
-            "temperature": 0.1,
-            "max_tokens": 4096,
-        }
-        req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        })
+# ── UNIVERSAL AI ROUTER (ULTRA-FAST MULTI-PROVIDER) ──────────────
+def universal_generate(prompt: str, api_key: str = "", system_prompt: str = "") -> str:
+    groq_key = os.getenv("GROQ_API_KEY") or (api_key if api_key and api_key.startswith("gsk_") else "")
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or (api_key if api_key and not api_key.startswith("gsk_") else "")
+
+    errors = []
+
+    # 1. Primary Priority: Groq LLaMA 3.1 8B (Sub-second response ~0.3s)
+    if groq_key:
         try:
-            with urllib.request.urlopen(req, timeout=15) as response:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+            data = {
+                "model": "llama-3.1-8b-instant",
+                "messages": messages,
+                "temperature": 0.1,
+                "max_tokens": 4096,
+            }
+            req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
+                "Authorization": f"Bearer {groq_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            })
+            with urllib.request.urlopen(req, timeout=12) as response:
                 result = json.loads(response.read().decode("utf-8"))
                 return result["choices"][0]["message"]["content"]
         except Exception as e:
@@ -80,46 +79,57 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
             try:
                 err_msg += " " + e.read().decode("utf-8")
             except: pass
-            raise Exception(f"Groq API failed: {err_msg}")
-    else:
-        # Use Gemini raw REST API to bypass SDK token formatting bugs
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+            errors.append(f"Groq: {err_msg}")
+
+    # 2. Fallback: Gemini with multiple model candidates
+    if gemini_key:
+        endpoints = [
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+        ]
         parts = []
         if system_prompt:
             parts.append({"text": f"System Instructions: {system_prompt}\n\n"})
         parts.append({"text": prompt})
-        
         data = {
             "contents": [{"parts": parts}],
             "generationConfig": {"temperature": 0.1}
         }
-        req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        })
-        try:
-            with urllib.request.urlopen(req, timeout=30) as response:
-                result = json.loads(response.read().decode("utf-8"))
-                return result["candidates"][0]["content"]["parts"][0]["text"]
-        except Exception as e:
-            err_msg = str(e)
+        for ep in endpoints:
             try:
-                err_msg += " " + e.read().decode("utf-8")
-            except: pass
-            raise Exception(f"Gemini API failed: {err_msg}")
+                url = f"{ep}?key={gemini_key}"
+                req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                })
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+                    return result["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception as e:
+                err_msg = str(e)
+                try:
+                    err_msg += " " + e.read().decode("utf-8")
+                except: pass
+                errors.append(f"Gemini ({ep.split('/')[-1]}): {err_msg}")
+
+    if errors:
+        raise Exception(" | ".join(errors))
+    raise Exception("No AI API keys configured.")
 
 # ── API Wrappers ────────────────────────────────────────────────
 def analysis_generate(prompt: str) -> str:
-    api_key = os.getenv("ANALYSIS_API_KEY") or os.getenv("GEMINI_API_KEY")
-    return universal_generate(prompt, api_key)
+    key = os.getenv("GROQ_API_KEY") or os.getenv("ANALYSIS_API_KEY") or os.getenv("GEMINI_API_KEY")
+    return universal_generate(prompt, key)
 
 def remediation_generate(prompt: str) -> str:
-    api_key = os.getenv("REMEDIATION_API_KEY") or os.getenv("REMEDATION_API_KEY") or os.getenv("GEMINI_API_KEY")
-    return universal_generate(prompt, api_key)
+    key = os.getenv("GROQ_API_KEY") or os.getenv("REMEDIATION_API_KEY") or os.getenv("REMEDATION_API_KEY") or os.getenv("GEMINI_API_KEY")
+    return universal_generate(prompt, key)
 
 def chatbot_generate(prompt: str, system_prompt: str = "") -> str:
-    api_key = os.getenv("CHATBOT_API_KEY") or os.getenv("GROQ_API_KEY")
-    return universal_generate(prompt, api_key, system_prompt)
+    key = os.getenv("GROQ_API_KEY") or os.getenv("CHATBOT_API_KEY") or os.getenv("GEMINI_API_KEY")
+    return universal_generate(prompt, key, system_prompt)
 
 @app.post("/analyze/text")
 async def analyze_text(req: AnalyzeTextRequest):
