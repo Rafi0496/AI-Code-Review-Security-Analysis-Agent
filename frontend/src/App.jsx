@@ -217,7 +217,7 @@ const ChatWidget = ({ currentCode, currentFindings }) => {
             )}
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col max-w-[85%] ${m.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
-                <div className={`p-3 rounded-2xl text-sm ${m.role === 'user' ? 'bg-primary text-on-primary rounded-tr-sm' : 'bg-surface-container text-on-surface border border-white/5 rounded-tl-sm'}`}>
+                <div className={`p-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed ${m.role === 'user' ? 'bg-primary text-on-primary rounded-tr-sm' : 'bg-surface-container text-on-surface border border-white/5 rounded-tl-sm'}`}>
                   {m.content}
                 </div>
                 {m.code_example && (

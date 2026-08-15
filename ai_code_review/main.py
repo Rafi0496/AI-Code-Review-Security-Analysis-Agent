@@ -83,7 +83,7 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
             raise Exception(f"Groq API failed: {err_msg}")
     else:
         # Use Gemini raw REST API to bypass SDK token formatting bugs
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         parts = []
         if system_prompt:
             parts.append({"text": f"System Instructions: {system_prompt}\n\n"})
@@ -306,12 +306,13 @@ async def chat_endpoint(req: ChatRequest):
         role = "User" if m.get("role") == "user" else "Lyca"
         history += f"{role}: {m.get('content', '')}\n"
     
-    prompt = f"""You are Lyca, a friendly and highly intelligent AI assistant. Answer ANY question the user asks — coding, security, math, science, general knowledge, anything.
+    prompt = f"""You are Lyca, a highly intelligent and professional AI Code Review assistant. Answer the user's questions clearly and concisely.
 
 Rules:
-- Give clear, helpful, detailed answers
-- Include code examples when relevant
-- Be conversational and friendly
+- Give professional, well-structured answers using bullet points and clear paragraphs.
+- Keep line spacing clean and readable. Do NOT write in a single block of text.
+- Include code examples inside Markdown fences when relevant.
+- Maintain a polite, expert tone.
 
 {context}{history}
 User: {req.question}
