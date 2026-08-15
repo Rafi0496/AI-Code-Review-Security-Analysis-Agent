@@ -134,12 +134,11 @@ async def analyze_text(req: AnalyzeTextRequest):
         sev = {"Critical":0,"High":0,"Medium":0,"Low":0}
         for f in unique: sev[f.get("severity","Low")] = sev.get(f.get("severity","Low"),0)+1
         risk = "Critical" if sev["Critical"]>0 else "High" if sev["High"]>0 else "Medium" if sev["Medium"]>0 else "Low"
-        pr_summary = generate_pr_summary(unique)
         return {
             "submission": {"language": req.language, "lines": len(req.code.splitlines()), "source": "paste"},
             "execution_time_seconds": 3.5,
             "summary": {"total_findings": len(unique), "severity_breakdown": sev, "risk_level": risk},
-            "pr_summary": pr_summary,
+            "pr_summary": {"title": "Generating...", "executive_summary": "", "estimated_fix_time": "Unknown"},
             "findings": unique
         }
     except Exception as e:

@@ -152,10 +152,13 @@ ${prData.positive_observations.map(o => `  <li>${o}</li>`).join('\n')}
 
 const ChatWidget = ({ currentCode, currentFindings }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [chatMode, setChatMode] = useState('popup')
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef(null)
+
+  const toggleMode = (mode) => setChatMode(prev => prev === mode ? 'popup' : mode)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -185,17 +188,25 @@ const ChatWidget = ({ currentCode, currentFindings }) => {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className={`fixed z-50 flex flex-col items-end transition-all duration-300 ${chatMode === 'popup' ? 'bottom-6 right-6' : 'top-20 right-0 h-[calc(100vh-80px)]'} ${chatMode === 'fullscreen' ? 'w-full' : chatMode === 'split' ? 'w-1/2' : ''}`}>
       {isOpen && (
-        <div className="bg-surface-container-low border border-white/10 rounded-2xl shadow-2xl mb-4 w-[350px] sm:w-[400px] h-[500px] flex flex-col overflow-hidden animate-in slide-in-from-bottom-5">
-          <div className="bg-surface-dim p-4 border-b border-white/5 flex justify-between items-center">
+        <div className={`bg-surface-container-low/95 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 transition-all duration-300 ${chatMode === 'popup' ? 'rounded-2xl mb-4 w-[350px] sm:w-[400px] h-[500px]' : 'rounded-l-2xl w-full h-full'}`}>
+          <div className="bg-surface-dim/80 backdrop-blur-xl p-4 border-b border-white/10 flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">smart_toy</span>
-              <h3 className="font-semibold text-on-surface">Lyca AI Chatbot</h3>
+              <span className="material-symbols-outlined text-primary" style={{fontVariationSettings: "'FILL' 1"}}>smart_toy</span>
+              <h3 className="font-semibold text-on-surface tracking-wide">Lyca AI</h3>
             </div>
-            <button onClick={() => setIsOpen(false)} className="text-outline-variant hover:text-white transition-colors">
-              <span className="material-symbols-outlined">close</span>
-            </button>
+            <div className="flex gap-3">
+              <button onClick={() => toggleMode('split')} className={`text-outline-variant hover:text-white transition-colors ${chatMode==='split'?'text-primary':''}`} title="Split Screen">
+                <span className="material-symbols-outlined" style={{fontSize:'20px'}}>vertical_split</span>
+              </button>
+              <button onClick={() => toggleMode('fullscreen')} className={`text-outline-variant hover:text-white transition-colors ${chatMode==='fullscreen'?'text-primary':''}`} title="Full Screen">
+                <span className="material-symbols-outlined" style={{fontSize:'20px'}}>fullscreen</span>
+              </button>
+              <button onClick={() => { setIsOpen(false); setChatMode('popup') }} className="text-outline-variant hover:text-white transition-colors">
+                <span className="material-symbols-outlined" style={{fontSize:'20px'}}>close</span>
+              </button>
+            </div>
           </div>
           
           <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4 bg-surface-container-lowest">
@@ -413,7 +424,10 @@ export default function App() {
     <>
       <header className="bg-surface/70 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-white/10 shadow-[0_20px_40px_rgba(99,102,241,0.15)] hidden md:flex justify-between items-center px-margin-desktop max-w-container-max mx-auto h-20 left-0 right-0">
         <div className="flex items-center gap-gutter">
-          <a className="font-headline-md text-headline-md font-black tracking-tighter text-primary" href="#">AI Code Analyzer</a>
+          <a className="font-headline-md text-headline-md font-black tracking-tighter text-primary flex items-center gap-2" href="#">
+            <span className="material-symbols-outlined" style={{fontSize: '28px', fontVariationSettings: "'FILL' 1"}}>policy</span>
+            AI Code Analyzer
+          </a>
           <nav className="flex items-center gap-stack-lg ml-stack-lg">
             <button onClick={() => setActiveTab('scanner')} className={`${activeTab === 'scanner' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant hover:text-on-surface hover:bg-primary/10'} px-3 py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold`}>Scanner</button>
             <button onClick={() => setActiveTab('results')} disabled={!result} className={`${activeTab === 'results' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : 'hover:text-on-surface hover:bg-primary/10'} px-3 py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold`}>Results</button>
@@ -496,89 +510,115 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* System Architecture Section */}
+                {/* Dynamic Work Pipeline Metrics */}
                 <div className="mt-12">
                   <h2 className="font-headline-md text-xl mb-6 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">account_tree</span>
-                    Universal API Architecture
+                    <span className="material-symbols-outlined text-primary">timeline</span>
+                    Active Job Pipeline
                   </h2>
                   
-                  <div className="glass-panel rounded-2xl p-8 relative overflow-hidden border border-white/10">
+                  <div className="glass-panel rounded-2xl p-6 border border-white/10 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                    
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
+                    <div className="relative z-10 flex flex-col gap-6">
                       
-                      {/* Frontend Layer */}
-                      <div className="flex flex-col gap-4 relative">
-                        <div className="bg-surface-dim border border-white/10 rounded-xl p-5 text-center shadow-lg relative z-10">
-                          <span className="material-symbols-outlined text-outline-variant mb-2" style={{fontSize: '32px'}}>web</span>
-                          <h4 className="font-bold text-white mb-1">React Frontend</h4>
-                          <p className="text-xs text-on-surface-variant">Client-side rendering & state</p>
+                      {/* Step 1: Code Reception */}
+                      <div className="flex gap-4 items-start">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${result ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-white/10 text-outline-variant'}`}>
+                            <span className="material-symbols-outlined" style={{fontSize:'16px'}}>code</span>
+                          </div>
+                          <div className={`w-1 h-16 ${result ? 'bg-primary/50' : 'bg-white/10'}`}></div>
                         </div>
-                        
-                        <div className="flex-1 flex flex-col justify-center items-center py-4">
-                          <div className="w-1 h-full bg-gradient-to-b from-primary/30 to-emerald-500/30 rounded-full relative">
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface-container border border-white/10 rounded-full p-2">
-                              <span className="material-symbols-outlined text-xs text-outline-variant">api</span>
+                        <div className="flex-1 mt-1">
+                          <h4 className={`font-bold ${result ? 'text-white' : 'text-outline-variant'}`}>1. Code Submission</h4>
+                          {result ? (
+                            <p className="text-sm text-on-surface-variant mt-1">
+                              Successfully parsed <strong className="text-primary">{result.submission?.lines || 0}</strong> lines of <strong className="text-primary">{result.submission?.language || 'code'}</strong>.
+                            </p>
+                          ) : (
+                            <p className="text-sm text-outline-variant mt-1">Awaiting code input...</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Step 2: Analysis */}
+                      <div className="flex gap-4 items-start">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${analyzing ? 'bg-risk-critical/20 border-risk-critical text-risk-critical animate-pulse' : result ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-white/10 text-outline-variant'}`}>
+                            <span className="material-symbols-outlined" style={{fontSize:'16px'}}>search</span>
+                          </div>
+                          <div className={`w-1 h-16 ${result ? 'bg-primary/50' : 'bg-white/10'}`}></div>
+                        </div>
+                        <div className="flex-1 mt-1">
+                          <h4 className={`font-bold ${analyzing ? 'text-risk-critical' : result ? 'text-white' : 'text-outline-variant'}`}>2. Multi-Agent Vulnerability Scan</h4>
+                          {analyzing ? (
+                            <p className="text-sm text-risk-critical mt-1 animate-pulse">Running static analysis and LLM inspection...</p>
+                          ) : result ? (
+                            <div className="mt-2 grid grid-cols-4 gap-2 max-w-sm">
+                              <div className="bg-surface-dim p-2 rounded border border-white/5 text-center">
+                                <div className="text-xs text-outline-variant">Critical</div>
+                                <div className="font-bold text-risk-critical">{result.summary?.severity_breakdown?.Critical || 0}</div>
+                              </div>
+                              <div className="bg-surface-dim p-2 rounded border border-white/5 text-center">
+                                <div className="text-xs text-outline-variant">High</div>
+                                <div className="font-bold text-risk-high">{result.summary?.severity_breakdown?.High || 0}</div>
+                              </div>
+                              <div className="bg-surface-dim p-2 rounded border border-white/5 text-center">
+                                <div className="text-xs text-outline-variant">Medium</div>
+                                <div className="font-bold text-risk-medium">{result.summary?.severity_breakdown?.Medium || 0}</div>
+                              </div>
+                              <div className="bg-surface-dim p-2 rounded border border-white/5 text-center">
+                                <div className="text-xs text-outline-variant">Low</div>
+                                <div className="font-bold text-risk-low">{result.summary?.severity_breakdown?.Low || 0}</div>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <p className="text-sm text-outline-variant mt-1">Waiting for code to analyze.</p>
+                          )}
                         </div>
                       </div>
 
-                      {/* Backend Layer */}
-                      <div className="flex flex-col gap-4 relative">
-                        <div className="bg-surface-dim border border-primary/30 rounded-xl p-5 text-center shadow-[0_0_20px_rgba(102,153,255,0.15)] relative z-10">
-                          <span className="material-symbols-outlined text-primary mb-2" style={{fontSize: '32px'}}>router</span>
-                          <h4 className="font-bold text-white mb-1">FastAPI Router</h4>
-                          <p className="text-xs text-on-surface-variant">Universal Dynamic Routing</p>
+                      {/* Step 3: PR Summary */}
+                      <div className="flex gap-4 items-start">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${prLoading ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500 animate-pulse' : prReport ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-white/10 text-outline-variant'}`}>
+                            <span className="material-symbols-outlined" style={{fontSize:'16px'}}>summarize</span>
+                          </div>
+                          <div className={`w-1 h-16 ${prReport ? 'bg-primary/50' : 'bg-white/10'}`}></div>
                         </div>
-                        
-                        <div className="flex gap-4 h-full justify-between mt-4">
-                          <div className="w-full flex justify-center">
-                            <div className="w-1 h-full bg-gradient-to-b from-primary/50 to-primary/20 rounded-full relative"></div>
-                          </div>
-                          <div className="w-full flex justify-center">
-                            <div className="w-1 h-full bg-gradient-to-b from-risk-critical/50 to-risk-critical/20 rounded-full relative"></div>
-                          </div>
-                          <div className="w-full flex justify-center">
-                            <div className="w-1 h-full bg-gradient-to-b from-emerald-500/50 to-emerald-500/20 rounded-full relative"></div>
-                          </div>
+                        <div className="flex-1 mt-1">
+                          <h4 className={`font-bold ${prLoading ? 'text-emerald-500' : prReport ? 'text-white' : 'text-outline-variant'}`}>3. PR Context Generation</h4>
+                          {prLoading ? (
+                            <p className="text-sm text-emerald-500 mt-1 animate-pulse">Generating executive summary...</p>
+                          ) : prReport ? (
+                            <p className="text-sm text-on-surface-variant mt-1">
+                              Summary generated with code health score: <strong className="text-primary">{prReport.code_health_score || 0}/100</strong>.
+                            </p>
+                          ) : (
+                            <p className="text-sm text-outline-variant mt-1">Waiting for analysis results.</p>
+                          )}
                         </div>
                       </div>
 
-                      {/* AI Providers Layer */}
-                      <div className="grid grid-cols-1 gap-4 relative">
-                        <div className="bg-surface-container border border-white/5 rounded-xl p-4 flex items-center gap-4 hover:bg-surface-variant transition-colors group">
-                          <div className="bg-primary/20 p-2 rounded-lg text-primary group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">smart_toy</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-white">Chatbot Engine</h4>
-                            <p className="text-xs text-on-surface-variant">Groq LLaMA 3.3 70B</p>
+                      {/* Step 4: Remediation */}
+                      <div className="flex gap-4 items-start">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${isFixingAll ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500 animate-pulse' : fixedCode ? 'bg-emerald-500 border-emerald-500 text-on-primary' : 'bg-surface border-white/10 text-outline-variant'}`}>
+                            <span className="material-symbols-outlined" style={{fontSize:'16px'}}>build</span>
                           </div>
                         </div>
-                        
-                        <div className="bg-surface-container border border-white/5 rounded-xl p-4 flex items-center gap-4 hover:bg-surface-variant transition-colors group">
-                          <div className="bg-risk-critical/20 p-2 rounded-lg text-risk-critical group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">plumbing</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-white">Scanner Engine</h4>
-                            <p className="text-xs text-on-surface-variant">Gemini Flash (REST API)</p>
-                          </div>
-                        </div>
-
-                        <div className="bg-surface-container border border-white/5 rounded-xl p-4 flex items-center gap-4 hover:bg-surface-variant transition-colors group">
-                          <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-500 group-hover:scale-110 transition-transform">
-                            <span className="material-symbols-outlined">code_blocks</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm text-white">Remediation Engine</h4>
-                            <p className="text-xs text-on-surface-variant">Gemini Flash (REST API)</p>
-                          </div>
+                        <div className="flex-1 mt-1">
+                          <h4 className={`font-bold ${isFixingAll ? 'text-emerald-500' : fixedCode ? 'text-emerald-500' : 'text-outline-variant'}`}>4. Automated Remediation</h4>
+                          {isFixingAll ? (
+                            <p className="text-sm text-emerald-500 mt-1 animate-pulse">Generating fixed codebase...</p>
+                          ) : fixedCode ? (
+                            <p className="text-sm text-emerald-500 mt-1">All vulnerabilities resolved. Secure code generated.</p>
+                          ) : (
+                            <p className="text-sm text-outline-variant mt-1">Awaiting user trigger for global fix.</p>
+                          )}
                         </div>
                       </div>
-                      
+
                     </div>
                   </div>
                 </div>
