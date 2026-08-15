@@ -83,7 +83,7 @@ def universal_generate(prompt: str, api_key: str, system_prompt: str = "") -> st
             raise Exception(f"Groq API failed: {err_msg}")
     else:
         # Use Gemini raw REST API to bypass SDK token formatting bugs
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key={api_key}"
         parts = []
         if system_prompt:
             parts.append({"text": f"System Instructions: {system_prompt}\n\n"})

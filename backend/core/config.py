@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     backend_port: int = 8000
 
     # Gemini model
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-1.5-flash-8b"
     embedding_model: str = "models/text-embedding-004"
 
     # File upload limits
