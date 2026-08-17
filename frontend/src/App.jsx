@@ -278,131 +278,193 @@ function downloadPDF(prData, fullFixedCode, submittedCode, language = 'python', 
 
   const effectiveFixedCode = fullFixedCode || prData.full_fixed_code || applyClientDeterministicFixes(submittedCode, language) || '// No code provided'
 
-  // Generate Error + Fix for EVERY finding
+  // Generate detailed error and fix breakdown for every finding
   const errorAndFixCards = allFindings.map((f, i) => {
-    const sev = f.severity || 'Medium'
-    const sevColor = sev === 'Critical' ? '#ef4444' : sev === 'High' ? '#f97316' : sev === 'Medium' ? '#eab308' : '#3b82f6'
-    const sevBg = sev === 'Critical' ? '#fee2e2' : sev === 'High' ? '#ffedd5' : sev === 'Medium' ? '#fef9c3' : '#dbeafe'
-    
-    const issueType = f.type || f.finding_type || f.title || 'Security/Quality Issue'
-    const lineNum = f.line || f.line_number || '—'
-    const desc = f.description || f.impact || 'Vulnerability or code smell detected in source code.'
-    const recommendation = f.recommendation || f.fix_summary || f.action_required || 'Apply secure coding patterns, strict input sanitization, and parameterized queries.'
-    
+    const sev = (f.severity || 'Medium').toUpperCase()
+    const issueType = (f.type || f.finding_type || f.title || 'Security Defect').toUpperCase()
+    const lineNum = f.line || f.line_number || 'N/A'
+    const desc = f.description || f.impact || 'Defect identified during automated static and heuristic analysis.'
+    const recommendation = f.recommendation || f.fix_summary || f.action_required || 'Review source implementation and apply standard security mitigations.'
+
+    // Determine deep root cause and threat impact based on issue type
+    let rootCause = ''
+    let threatImpact = ''
+    let detailedAction = recommendation
+
+    const typeLower = (f.type || f.title || '').toLowerCase()
+    if (typeLower.includes('sql') || typeLower.includes('injection')) {
+      rootCause = 'Dynamic string concatenation is used to construct database queries with untrusted user input, allowing attackers to manipulate the SQL syntax tree and execute arbitrary database commands.'
+      threatImpact = 'Critical Risk: Unauthorized reading of database records, extraction of user credentials, bypassing authentication filters, or data destruction.'
+      if (!recommendation || recommendation.length < 25) {
+        detailedAction = 'Refactor query execution to utilize parameterized queries or prepared statements. Never concatenate user input directly into SQL strings. Bind variables securely at runtime.'
+      }
+    } else if (typeLower.includes('secret') || typeLower.includes('credential') || typeLower.includes('password') || typeLower.includes('api_key') || typeLower.includes('token')) {
+      rootCause = 'Plaintext sensitive credentials (API keys, database passwords, or cryptographic tokens) are statically hardcoded into the source code.'
+      threatImpact = 'Critical Risk: Hardcoded credentials committed to version control can be discovered by unauthorized users or attackers, compromising external services and databases.'
+      if (!recommendation || recommendation.length < 25) {
+        detailedAction = 'Remove plaintext secrets immediately. Store credentials securely in system environment variables or a secrets manager, and access them dynamically via os.getenv() or equivalent.'
+      }
+    } else if (typeLower.includes('command') || typeLower.includes('os.system') || typeLower.includes('subprocess')) {
+      rootCause = 'External operating system commands are invoked via a shell wrapper with concatenated user arguments without strict parameter separation or sanitization.'
+      threatImpact = 'Critical Risk: Remote Code Execution (RCE), host compromise, unauthorized access to host file system, and potential server takeover.'
+      if (!recommendation || recommendation.length < 25) {
+        detailedAction = 'Eliminate shell execution wrappers (avoid os.system and shell=True). Use subprocess.run() passing arguments as an explicit, structured list of tokens.'
+      }
+    } else if (typeLower.includes('bare except') || typeLower.includes('except') || typeLower.includes('error handling')) {
+      rootCause = 'A broad, unqualified `except:` clause catches all exceptions indiscriminately, including SystemExit, KeyboardInterrupt, and unforeseen memory or runtime errors.'
+      threatImpact = 'Medium Risk: Masking underlying programming errors, preventing graceful process termination, and complicating error tracing in production environments.'
+      if (!recommendation || recommendation.length < 25) {
+        detailedAction = 'Catch specific exception types explicitly (e.g., `except Exception as e:` or specific domain errors such as `ValueError`, `KeyError`) and log the exception details.'
+      }
+    } else if (typeLower.includes('parameter') || typeLower.includes('complexity') || typeLower.includes('code smell')) {
+      rootCause = 'Function signature defines an excessive number of parameters, increasing cognitive load, coupling, and likelihood of caller misuse.'
+      threatImpact = 'Low to Medium Risk: Decreased code maintainability, high regression risk during modifications, and violation of Clean Code modularity principles.'
+      if (!recommendation || recommendation.length < 25) {
+        detailedAction = 'Encapsulate related parameters into a dedicated data structure, configuration object, or typed dictionary to simplify the interface.'
+      }
+    } else {
+      rootCause = `The source logic deviates from secure coding standards and static analysis heuristics near Line ${lineNum}.`
+      threatImpact = `Potential security or maintainability defect classified under ${sev} severity level.`
+    }
+
     const beforeSnippet = f.before_code || (f.code_example ? f.code_example : null)
     const afterSnippet = f.after_code || (f.corrected_code ? f.corrected_code : null)
 
     return `
-    <div style="margin-bottom: 22px; border: 1px solid #e2e8f0; border-left: 5px solid ${sevColor}; border-radius: 6px; padding: 16px 18px; background: #fafafa; page-break-inside: avoid;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <div style="font-size: 15px; font-weight: 700; color: #0f172a;">
-          #${i + 1}. ${issueType}
+    <div style="margin-bottom: 24px; border: 1px solid #000; padding: 18px; background: #fff; page-break-inside: avoid;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 12px;">
+        <div style="font-size: 14px; font-weight: 800; text-transform: uppercase; color: #000;">
+          ISSUE #${i + 1}: ${issueType}
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
-          <span style="background: ${sevBg}; color: ${sevColor}; font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 4px; text-transform: uppercase;">${sev}</span>
-          <span style="background: #e2e8f0; color: #334155; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-family: monospace;">Line ${lineNum}</span>
+          <span style="border: 1px solid #000; background: #000; color: #fff; font-weight: 800; font-size: 10px; padding: 3px 8px; text-transform: uppercase; letter-spacing: 0.05em;">${sev}</span>
+          <span style="border: 1px solid #000; background: #fff; color: #000; font-weight: 700; font-size: 10px; padding: 3px 8px; font-family: monospace;">LINE ${lineNum}</span>
         </div>
       </div>
       
-      <div style="margin-bottom: 12px; color: #334155; font-size: 13px; line-height: 1.55;">
-        <strong>Error Details:</strong> ${desc}
+      <div style="margin-bottom: 10px;">
+        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 2px;">1. Defect Description:</div>
+        <div style="font-size: 12.5px; color: #000; line-height: 1.55;">${desc}</div>
       </div>
 
-      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 12px 14px; margin-top: 10px; color: #166534; font-size: 13px; line-height: 1.55;">
-        <div style="font-weight: 700; color: #15803d; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
-          <span>🛠️ Error Fix & Action:</span>
-        </div>
-        <div>${recommendation}</div>
+      <div style="margin-bottom: 10px;">
+        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 2px;">2. Root Cause Analysis:</div>
+        <div style="font-size: 12.5px; color: #000; line-height: 1.55;">${rootCause}</div>
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 2px;">3. Security & Operational Impact:</div>
+        <div style="font-size: 12.5px; color: #000; line-height: 1.55;">${threatImpact}</div>
+      </div>
+
+      <div style="border: 1px solid #000; background: #f8f8f8; padding: 12px; margin-top: 12px;">
+        <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">4. Actionable Remediation & Fix Instructions:</div>
+        <div style="font-size: 12.5px; color: #000; line-height: 1.55;">${detailedAction}</div>
       </div>
 
       ${beforeSnippet || afterSnippet ? `
-      <div style="margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <div style="margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
         ${beforeSnippet ? `
-        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; padding: 8px 10px; overflow-x: auto;">
-          <div style="color: #991b1b; font-weight: 700; font-size: 11px; margin-bottom: 4px;">- Vulnerable Code:</div>
-          <pre style="margin: 0; font-family: monospace; font-size: 11px; color: #7f1d1d; white-space: pre-wrap;">${beforeSnippet}</pre>
+        <div style="border: 1px solid #000; background: #fff;">
+          <div style="background: #000; color: #fff; padding: 4px 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;">VULNERABLE CODE (BEFORE)</div>
+          <pre style="margin: 0; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; color: #000; white-space: pre-wrap; line-height: 1.5;">${beforeSnippet}</pre>
         </div>` : ''}
         ${afterSnippet ? `
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 8px 10px; overflow-x: auto;">
-          <div style="color: #166534; font-weight: 700; font-size: 11px; margin-bottom: 4px;">+ Remediation Fix:</div>
-          <pre style="margin: 0; font-family: monospace; font-size: 11px; color: #14532d; white-space: pre-wrap;">${afterSnippet}</pre>
+        <div style="border: 1px solid #000; background: #fff;">
+          <div style="background: #000; color: #fff; padding: 4px 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;">SECURE REMEDIATION (AFTER)</div>
+          <pre style="margin: 0; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; color: #000; white-space: pre-wrap; line-height: 1.5;">${afterSnippet}</pre>
         </div>` : ''}
       </div>` : ''}
     </div>`
   }).join('')
 
   const fixedCodeLines = effectiveFixedCode.split('\n').map((line, idx) => {
-    return `<tr><td style="width: 40px; text-align: right; color: #64748b; padding: 2px 8px; border: none; user-select: none; background: #f8fafc; font-family: monospace; font-size: 11px;">${idx + 1}</td><td style="padding: 2px 8px; border: none; font-family: monospace; font-size: 12px; white-space: pre; color: #0f172a;">${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || ' '}</td></tr>`
+    return `<tr><td style="width: 45px; text-align: right; color: #444; padding: 2px 8px; border: none; border-right: 1px solid #000; user-select: none; background: #f0f0f0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px;">${idx + 1}</td><td style="padding: 2px 8px; border: none; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; white-space: pre; color: #000;">${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || ' '}</td></tr>`
   }).join('')
+
+  const rawFixedCodeEscaped = JSON.stringify(effectiveFixedCode)
 
   const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>${prData.pr_title || 'Code Review & Remediation Report'}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; padding: 40px; line-height: 1.6; font-size: 13px; background: #fff; }
-  h1 { font-size: 24px; font-weight: 800; margin-bottom: 6px; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 12px; }
-  h2 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; }
-  .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
-  .score-row { display: flex; gap: 20px; margin: 16px 0 24px; }
-  .score-card { flex: 1; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; text-align: center; }
-  .score-val { font-size: 26px; font-weight: 800; color: #0f172a; display: block; }
-  .score-lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-top: 4px; display: block; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; color: #000; padding: 40px; line-height: 1.6; font-size: 13px; background: #fff; }
+  .report-header { border-bottom: 2px solid #000; padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+  h1 { font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #000; }
+  .meta { font-size: 11.5px; color: #222; margin-top: 4px; }
+  .action-bar { display: flex; gap: 8px; }
+  .btn-action { background: #000; color: #fff; border: 1px solid #000; padding: 6px 14px; font-size: 11.5px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em; }
+  .btn-action:hover { background: #333; }
+  h2 { font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin: 28px 0 12px; color: #000; border-bottom: 1px solid #000; padding-bottom: 5px; }
+  .score-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0 24px; }
+  .score-card { border: 1px solid #000; padding: 12px; text-align: center; background: #fff; }
+  .score-val { font-size: 24px; font-weight: 800; color: #000; display: block; }
+  .score-lbl { font-size: 10.5px; color: #222; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-top: 4px; display: block; }
   table.stats-table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; }
-  table.stats-table th, table.stats-table td { text-align: left; padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 12px; }
-  table.stats-table th { background: #f1f5f9; font-weight: 700; color: #334155; }
-  .code-container { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-top: 12px; }
-  .code-table { width: 100%; border-collapse: collapse; }
-  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
+  table.stats-table th, table.stats-table td { text-align: left; padding: 8px 12px; border: 1px solid #000; font-size: 12px; color: #000; }
+  table.stats-table th { background: #f0f0f0; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; }
+  .code-container { border: 1px solid #000; background: #fff; margin-top: 12px; }
+  .code-table { width: 100%; border-collapse: collapse; margin: 0; }
+  .footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid #000; font-size: 10.5px; color: #222; display: flex; justify-content: space-between; }
   @media print {
     body { padding: 20px; }
+    .no-print { display: none !important; }
     .code-container { page-break-inside: auto; }
   }
 </style>
 </head><body>
-<h1>${prData.pr_title || 'Security Review & PR Remediation Report'}</h1>
-<div class="meta">
-  <strong>Generated:</strong> ${new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })} &bull; 
-  <strong>System:</strong> AI Multi-Agent Code Inspector &bull; 
-  <strong>Language:</strong> ${(language || 'python').toUpperCase()}
+<div class="report-header">
+  <div>
+    <h1>${prData.pr_title || 'Security Code Review & Pull Request Audit Report'}</h1>
+    <div class="meta">
+      <strong>Generated:</strong> ${new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })} &bull; 
+      <strong>System:</strong> AI Multi-Agent Code Inspector &bull; 
+      <strong>Target Language:</strong> ${(language || 'python').toUpperCase()}
+    </div>
+  </div>
+  <div class="action-bar no-print">
+    <button class="btn-action" onclick="window.print()">Print / Save PDF</button>
+  </div>
 </div>
 
-<h2>1. Executive Overview & Code Health</h2>
-<p style="margin-bottom: 16px; color: #334155; font-size: 13.5px; line-height: 1.6;">${prData.executive_overview || 'Comprehensive multi-agent code analysis completed. Findings and remediation solutions are outlined below.'}</p>
+<h2>1. Executive Overview & Code Health Assessment</h2>
+<p style="margin-bottom: 16px; color: #000; font-size: 13px; line-height: 1.6;">${prData.executive_overview || 'Comprehensive multi-agent code analysis completed. Findings, technical root causes, and full code remediation are documented below.'}</p>
 
 <div class="score-row">
   <div class="score-card">
-    <span class="score-val" style="color: ${(prData.code_health_score ?? 80) < 50 ? '#ef4444' : (prData.code_health_score ?? 80) < 80 ? '#f59e0b' : '#10b981'};">${prData.code_health_score ?? '—'}/100</span>
+    <span class="score-val">${prData.code_health_score ?? '—'}/100</span>
     <span class="score-lbl">Code Health Score</span>
   </div>
   <div class="score-card">
-    <span class="score-val">${prData.risk_level || (prData.severity_breakdown?.Critical > 0 ? 'Critical' : prData.severity_breakdown?.High > 0 ? 'High' : 'Moderate')}</span>
-    <span class="score-lbl">Overall Risk Level</span>
+    <span class="score-val">${prData.risk_level || (prData.severity_breakdown?.Critical > 0 ? 'CRITICAL' : prData.severity_breakdown?.High > 0 ? 'HIGH' : 'MODERATE')}</span>
+    <span class="score-lbl">Overall Risk Classification</span>
   </div>
   <div class="score-card">
     <span class="score-val">${prData.estimated_fix_time || '15 mins'}</span>
-    <span class="score-lbl">Est. Remediation Time</span>
+    <span class="score-lbl">Est. Remediation Effort</span>
   </div>
 </div>
 
-<h2>2. Severity Breakdown</h2>
+<h2>2. Vulnerability Severity Breakdown</h2>
 <table class="stats-table">
-  <tr><th>Severity</th><th>Count</th><th>Resolution SLA & Impact</th></tr>
-  <tr><td style="color: #ef4444; font-weight: bold;">Critical</td><td>${prData.severity_breakdown?.Critical ?? 0}</td><td>Immediate exploitation risk — Must be resolved before merge</td></tr>
-  <tr><td style="color: #f97316; font-weight: bold;">High</td><td>${prData.severity_breakdown?.High ?? 0}</td><td>High security or stability concern — Fix within 24 hours</td></tr>
-  <tr><td style="color: #eab308; font-weight: bold;">Medium</td><td>${prData.severity_breakdown?.Medium ?? 0}</td><td>Code smell or performance degradation — Fix within current sprint</td></tr>
-  <tr><td style="color: #3b82f6; font-weight: bold;">Low</td><td>${prData.severity_breakdown?.Low ?? 0}</td><td>Minor improvement or style guideline — Fix when convenient</td></tr>
+  <tr><th>Severity Level</th><th>Identified Count</th><th>Resolution SLA & Policy</th></tr>
+  <tr><td><strong>CRITICAL</strong></td><td>${prData.severity_breakdown?.Critical ?? 0}</td><td>Immediate exploitation risk — Blocking issue; fix required prior to merge</td></tr>
+  <tr><td><strong>HIGH</strong></td><td>${prData.severity_breakdown?.High ?? 0}</td><td>Significant security or stability concern — Resolve within 24 hours</td></tr>
+  <tr><td><strong>MEDIUM</strong></td><td>${prData.severity_breakdown?.Medium ?? 0}</td><td>Code smell or performance degradation — Resolve within current iteration</td></tr>
+  <tr><td><strong>LOW</strong></td><td>${prData.severity_breakdown?.Low ?? 0}</td><td>Minor improvement or style guideline — Address during routine maintenance</td></tr>
 </table>
 
-<h2>3. Detected Errors & Specific Fixes</h2>
-<p style="color: #64748b; font-size: 12px; margin-bottom: 14px;">Every detected error along with its specific fix and remediation instructions:</p>
-${errorAndFixCards || '<p style="color: #64748b;">No issues detected in submitted code.</p>'}
+<h2>3. Comprehensive Defect Analysis & Error Fixes</h2>
+<p style="color: #222; font-size: 12px; margin-bottom: 14px;">Detailed technical breakdown for every identified defect, including root cause, impact, and exact code fix:</p>
+${errorAndFixCards || '<p style="color: #000;">No defects identified in submitted codebase.</p>'}
 
-<h2>4. Full Fixed Code (Remediated Codebase)</h2>
-<p style="color: #64748b; font-size: 12px; margin-bottom: 10px;">The complete corrected source code with all vulnerabilities patched and secure standards applied:</p>
+<h2>4. Full Remediated Source Code (Fixed Codebase)</h2>
+<p style="color: #222; font-size: 12px; margin-bottom: 10px;">The complete corrected source code with all vulnerabilities resolved and secure coding standards implemented:</p>
 <div class="code-container">
-  <div style="background: #0f172a; color: #38bdf8; padding: 6px 12px; font-family: monospace; font-size: 11px; font-weight: bold; border-bottom: 1px solid #1e293b;">
-    📄 SECURED SOURCE CODE (${(language || 'python').toUpperCase()})
+  <div style="background: #f0f0f0; border-bottom: 1px solid #000; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+    <span style="font-size: 11px; font-weight: 800; font-family: monospace; text-transform: uppercase;">📄 SECURED SOURCE CODE (${(language || 'python').toUpperCase()})</span>
+    <button id="copy-btn" class="btn-action no-print" onclick="copyFixedCode()" style="padding: 4px 10px; font-size: 11px;">📋 Copy Fixed Code</button>
   </div>
   <table class="code-table">
     <tbody>
@@ -413,14 +475,40 @@ ${errorAndFixCards || '<p style="color: #64748b;">No issues detected in submitte
 
 ${prData.positive_observations?.length > 0 ? `
 <h2>5. Positive Observations & Best Practices</h2>
-<ul style="margin: 8px 0 8px 24px; color: #334155;">
+<ul style="margin: 8px 0 8px 24px; color: #000;">
   ${prData.positive_observations.map(o => `<li style="margin-bottom: 6px;">${o}</li>`).join('')}
 </ul>` : ''}
 
 <div class="footer">
   <span>AI Code Review & Security Analysis Agent</span>
-  <span>Automated Multi-Agent Verification Report</span>
+  <span>Automated Multi-Agent Verification Audit</span>
 </div>
+
+<script>
+  function copyFixedCode() {
+    const code = ${rawFixedCodeEscaped};
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById('copy-btn');
+        if (btn) {
+          const orig = btn.innerText;
+          btn.innerText = '✓ COPIED TO CLIPBOARD!';
+          setTimeout(() => {
+            btn.innerText = orig;
+          }, 2000);
+        }
+      });
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = code;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      alert('Fixed code copied to clipboard!');
+    }
+  }
+</script>
 </body></html>`
 
   const printWindow = window.open('', '_blank')
@@ -588,6 +676,7 @@ export default function App() {
   const [fixedCode, setFixedCode] = useState(null)
   const [isFixingAll, setIsFixingAll] = useState(false)
   const [showFixedCode, setShowFixedCode] = useState(false)
+  const [copiedFixed, setCopiedFixed] = useState(false)
 
   const handlePaste = async () => {
     setMode('paste')
@@ -1191,19 +1280,35 @@ export default function App() {
                         )}
                       </div>
                       
-                      <button 
-                        onClick={handleFixAll} 
-                        disabled={isFixingAll || (findings.length === 0 && !fixedCode)} 
-                        className={`flex items-center gap-2 px-4 py-1.5 rounded text-sm font-semibold transition-all ${isFixingAll ? 'bg-surface-variant text-outline-variant cursor-not-allowed' : fixedCode ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-primary text-on-primary hover:brightness-110 active:scale-95'}`}
-                      >
-                        {isFixingAll ? (
-                          <><span className="spin" style={{width: 14, height: 14}}></span> Generating...</>
-                        ) : fixedCode ? (
-                          <><span className="material-symbols-outlined" style={{fontSize: '18px'}}>refresh</span> Regenerate Fix</>
-                        ) : (
-                          <><span className="material-symbols-outlined" style={{fontSize: '18px', fontVariationSettings: "'FILL' 1"}}>auto_fix</span> Generate Fixed Code</>
+                      <div className="flex items-center gap-2">
+                        {showFixedCode && fixedCode && (
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(fixedCode)
+                              setCopiedFixed(true)
+                              setTimeout(() => setCopiedFixed(false), 2000)
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-surface-dim hover:bg-surface-variant text-xs text-white rounded border border-white/10 transition-colors"
+                            title="Copy Fixed Code"
+                          >
+                            <span className="material-symbols-outlined" style={{fontSize: '15px'}}>{copiedFixed ? 'check' : 'content_copy'}</span>
+                            {copiedFixed ? 'Copied' : 'Copy Code'}
+                          </button>
                         )}
-                      </button>
+                        <button 
+                          onClick={handleFixAll} 
+                          disabled={isFixingAll || (findings.length === 0 && !fixedCode)} 
+                          className={`flex items-center gap-2 px-4 py-1.5 rounded text-sm font-semibold transition-all ${isFixingAll ? 'bg-surface-variant text-outline-variant cursor-not-allowed' : fixedCode ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-primary text-on-primary hover:brightness-110 active:scale-95'}`}
+                        >
+                          {isFixingAll ? (
+                            <><span className="spin" style={{width: 14, height: 14}}></span> Generating...</>
+                          ) : fixedCode ? (
+                            <><span className="material-symbols-outlined" style={{fontSize: '18px'}}>refresh</span> Regenerate Fix</>
+                          ) : (
+                            <><span className="material-symbols-outlined" style={{fontSize: '18px', fontVariationSettings: "'FILL' 1"}}>auto_fix</span> Generate Fixed Code</>
+                          )}
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="bg-[#1e1e24] p-4 flex-1 overflow-auto font-code-sm text-code-sm leading-relaxed text-gray-300">
