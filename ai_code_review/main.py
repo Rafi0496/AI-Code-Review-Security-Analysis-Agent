@@ -256,16 +256,21 @@ async def pr_summary_endpoint(req: PRSummaryRequest):
     score = max(0, 100 - (sev.get("Critical",0)*20 + sev.get("High",0)*10 + sev.get("Medium",0)*5 + sev.get("Low",0)*2))
     prioritized = sorted(findings, key=lambda x: ["Critical","High","Medium","Low"].index(x.get("severity", "Low")))
     
-    # Build detailed findings list for the report
+    # Build detailed findings list with error and fix details for the report
+    submitted_code = result.get("_submittedCode", "") or result.get("code", "")
+    full_fixed = apply_deterministic_fixes(submitted_code, req.language) if submitted_code else ""
+
     detailed_findings = []
-    for f in prioritized[:15]:
+    for f in prioritized[:25]:
         detailed_findings.append({
             "type": f.get("type", "Issue"),
             "severity": f.get("severity", "Medium"),
             "line": f.get("line", 0),
             "description": f.get("description", ""),
-            "recommendation": f.get("recommendation", "Review manually."),
-            "category": f.get("category", "General")
+            "recommendation": f.get("recommendation", "Review manually and apply secure patterns."),
+            "category": f.get("category", "General"),
+            "before_code": f.get("before_code", ""),
+            "after_code": f.get("after_code", "")
         })
     
     try:
@@ -296,6 +301,7 @@ Health Score: {score}/100"""
         "top_critical_findings": data.get("top_critical_findings", []),
         "prioritized_fix_list": prioritized,
         "detailed_findings": detailed_findings,
+        "full_fixed_code": full_fixed,
         "positive_observations": data.get("positive_observations", []),
         "estimated_fix_time": f"{max(1, sev.get('Critical',0)*15 + sev.get('High',0)*10 + sev.get('Medium',0)*5)} mins",
         "markdown_report": ""

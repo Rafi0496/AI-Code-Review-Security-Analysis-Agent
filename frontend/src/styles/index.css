@@ -60,3 +60,85 @@
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
+
+/* ── Code Editor Syntax Highlighting (Dark IDE Theme) ── */
+.code-editor-font {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13.5px;
+  line-height: 22px;
+  letter-spacing: 0;
+  tab-size: 4;
+  -moz-tab-size: 4;
+}
+
+.syntax-highlight-layer {
+  color: #c0caf5;
+  background: transparent;
+}
+
+.syntax-highlight-layer .token.comment,
+.syntax-highlight-layer .token.prolog,
+.syntax-highlight-layer .token.doctype,
+.syntax-highlight-layer .token.cdata {
+  color: #7ca669;
+  font-style: italic;
+}
+
+.syntax-highlight-layer .token.punctuation {
+  color: #abb2bf;
+}
+
+.syntax-highlight-layer .token.keyword,
+.syntax-highlight-layer .token.tag,
+.syntax-highlight-layer .token.important,
+.syntax-highlight-layer .token.atrule {
+  color: #c678dd;
+  font-weight: 600;
+}
+
+.syntax-highlight-layer .token.function,
+.syntax-highlight-layer .token.class-name,
+.syntax-highlight-layer .token.function-name {
+  color: #61afef;
+  font-weight: 500;
+}
+
+.syntax-highlight-layer .token.string,
+.syntax-highlight-layer .token.attr-value,
+.syntax-highlight-layer .token.char {
+  color: #98c379;
+}
+
+.syntax-highlight-layer .token.number,
+.syntax-highlight-layer .token.boolean,
+.syntax-highlight-layer .token.constant {
+  color: #ff9e64;
+}
+
+.syntax-highlight-layer .token.operator,
+.syntax-highlight-layer .token.entity,
+.syntax-highlight-layer .token.url {
+  color: #56b6c2;
+}
+
+.syntax-highlight-layer .token.builtin,
+.syntax-highlight-layer .token.symbol {
+  color: #4ec9b0;
+  font-weight: 500;
+}
+
+.syntax-highlight-layer .token.variable,
+.syntax-highlight-layer .token.property,
+.syntax-highlight-layer .token.parameter {
+  color: #9cdcfe;
+}
+
+.syntax-highlight-layer .token.regex {
+  color: #d16969;
+}
+
+.code-editor-textarea::placeholder {
+  color: #5c6370;
+  font-style: italic;
+}
+
