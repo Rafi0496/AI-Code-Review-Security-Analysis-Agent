@@ -4,8 +4,7 @@ An intelligent, multi-agent platform designed to automatically analyze source co
 
 ## Live Deployments
 
-- Frontend Application: [https://ai-code-review-security-analysis-ag.vercel.app](https://ai-code-review-security-analysis-ag.vercel.app)
-- Backend API (Render): [https://ai-code-review-security-analysis-agent.onrender.com](https://ai-code-review-security-analysis-agent.onrender.com)
+- Application Deployment: [https://ai-code-review-security-analysis-ag.vercel.app](https://ai-code-review-security-analysis-ag.vercel.app)
 
 ## Architecture Overview
 
