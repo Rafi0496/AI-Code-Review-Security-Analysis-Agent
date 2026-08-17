@@ -1,0 +1,36 @@
+# Threat Modeling, Architecture Review & Defensive Software Engineering Master Guide
+
+## 1. Executive Summary & Overview
+Defensive software engineering is a methodology that assumes software will encounter hostile inputs, network failures, compromised dependencies, and malicious insiders. Rather than relying solely on perimeter defenses, defensive systems implement security controls at every architectural layer.
+
+---
+
+## 2. Threat Modeling Frameworks & Implementation
+
+### 2.1 The PASTA Framework (Process for Attack Simulation and Threat Analysis)
+1. **Define Objectives**: Identify compliance standards (SOC 2, ISO 27001, HIPAA) and business goals.
+2. **Define Technical Scope**: Map architectural boundaries, APIs, message queues, and databases.
+3. **Decompose Application**: Identify actors, assets, data flows, and trust boundaries.
+4. **Analyze Threats**: Identify threat intelligence and adversary motivation.
+5. **Vulnerability Analysis**: Correlate architectural weaknesses with known CVEs and CWEs.
+6. **Attack Simulation**: Model attack trees and simulate realistic exploitation paths.
+7. **Risk & Impact Analysis**: Prioritize remediation based on business impact.
+
+---
+
+## 3. Defensive Engineering Design Patterns
+
+### 3.1 Idempotency in Distributed APIs
+- **Problem**: Network timeouts cause clients to retry requests, potentially duplicating payments or state changes.
+- **Pattern**: Require an `Idempotency-Key` header on all non-idempotent operations (POST/PATCH). Store the key in Redis with a 24-hour TTL and return cached responses for repeated keys.
+
+### 3.2 Circuit Breaker & Bulkhead Patterns
+- **Problem**: A failing downstream microservice exhausts thread pools and causes cascading outages across the entire application.
+- **Pattern**: Wrap remote calls in Circuit Breakers (e.g. Resilience4j, PyBreaker) that trip after consecutive failures, returning graceful fallbacks instantly.
+
+### 3.3 Zero Trust Architecture (ZTA)
+- **Principle**: Never trust, always verify.
+- **Rules**:
+  - Mutual TLS (mTLS) for all service-to-service communication.
+  - Short-lived scoped JWT access tokens with cryptographic rotation.
+  - Continuous authentication and context-aware authorization.

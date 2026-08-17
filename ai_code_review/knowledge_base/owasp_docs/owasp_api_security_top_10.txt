@@ -1,0 +1,56 @@
+# OWASP API Security Top 10 (2023 Edition) Master Reference
+
+## 1. Executive Summary & Overview
+APIs (REST, GraphQL, gRPC) constitute over 80% of all modern internet traffic and represent the primary attack surface for web and mobile applications. The OWASP API Security Top 10 specifically addresses vulnerabilities unique to API architectures, microservices, and decentralized data access.
+
+---
+
+## 2. The Complete OWASP API Security Top 10 (2023)
+
+### API1:2023 – Broken Object Level Authorization (BOLA / IDOR)
+- **Vulnerability**: Endpoints expose object identifiers (e.g. `/api/users/{id}/profile` or `/api/documents/{uuid}`) without validating that the authenticated user has rights to that specific entity.
+- **Remediation**: Enforce authorization at the data layer for every single request using user context from the validated session token.
+
+### API2:2023 – Broken Authentication
+- **Vulnerability**: Weak token validation, missing rate limiting on credential endpoints, unexpired JWTs, or accepting signatures with weak HMAC secrets.
+- **Remediation**: Use standardized OAuth 2.0 / OIDC flows, enforce strong token validation, and implement sliding window rate limiting.
+
+### API3:2023 – Broken Object Property Level Authorization (BOPLA / Mass Assignment)
+- **Vulnerability**: Endpoints accept request bodies and blindly bind properties directly to internal database models, allowing attackers to overwrite sensitive fields (e.g. `is_admin=true`, `account_balance=1000000`).
+- **Remediation**: Always use strict Data Transfer Objects (DTOs) / Pydantic schemas that explicitly allowlist updatable fields. Never pass raw request JSON into ORM models.
+
+```python
+# SECURE (FastAPI / Pydantic DTO):
+class UserProfileUpdateDTO(BaseModel):
+    display_name: Optional[str] = Field(None, max_length=50)
+    bio: Optional[str] = Field(None, max_length=500)
+    # Note: is_admin, role, and balance are EXCLUDED from this schema!
+```
+
+### API4:2023 – Unrestricted Resource Consumption
+- **Vulnerability**: Missing execution timeouts, unbounded pagination limits (`limit=1000000`), excessive payload size uploads, or unthrottled CPU-heavy queries causing Denial of Service (DoS).
+- **Remediation**: Enforce strict pagination limits (e.g. `max_limit=100`), maximum payload limits (`10MB`), and request timeouts on all routes.
+
+### API5:2023 – Broken Function Level Authorization (BFLA)
+- **Vulnerability**: Regular users can execute administrative endpoints by directly sending HTTP requests to privileged URLs (e.g. `POST /api/v1/users/export-all` or `DELETE /api/v1/system/reset`).
+- **Remediation**: Implement centralized authorization interceptors and granular permission decorators (`@require_permission("USER_EXPORT")`).
+
+### API6:2023 – Unrestricted Access to Sensitive Business Flows
+- **Vulnerability**: Attackers use automated bots to purchase limited inventory (scalping), submit spam reviews, or initiate thousands of password resets without technically exploiting a code bug.
+- **Remediation**: Implement device fingerprinting, behavioral analysis, bot detection (Cloudflare Turnstile), and biometric CAPTCHAs on business-critical flows.
+
+### API7:2023 – Server-Side Request Forgery (SSRF)
+- **Vulnerability**: Webhooks, file import URLs, or custom export endpoints fetching remote URLs without IP validation.
+- **Remediation**: Strictly validate URL scheme, resolve DNS, and block all private/link-local IP addresses (RFC 1918 / RFC 3927).
+
+### API8:2023 – Security Misconfiguration
+- **Vulnerability**: Verbose stack traces, unpatched API gateways, missing CORS whitelisting, or exposed Swagger / GraphQL Introspection in production.
+- **Remediation**: Disable GraphQL introspection in production, configure secure HTTP headers, and enforce automated configuration compliance.
+
+### API9:2023 – Improper Inventory Management
+- **Vulnerability**: Legacy, unpatched API versions (e.g. `/v1/users` remaining online while `/v2/users` received security patches) and shadow APIs deployed without security oversight.
+- **Remediation**: Maintain automated API documentation, decommission old API versions, and enforce API Gateway routing policies.
+
+### API10:2023 – Unsafe Consumption of APIs
+- **Vulnerability**: Blindly trusting data received from third-party APIs (payment processors, social logins) without sanitization, leading to downstream injection or deserialization attacks.
+- **Remediation**: Treat all external API responses as untrusted user input; validate schemas and sanitize before processing.

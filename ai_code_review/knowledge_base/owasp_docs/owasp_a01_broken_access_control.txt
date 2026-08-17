@@ -1,0 +1,145 @@
+# OWASP A01:2021 – Broken Access Control & Authorization Security Master Reference
+
+## 1. Executive Summary & Overview
+Broken Access Control moved from #5 to the #1 spot in the OWASP Top 10 (2021), representing the most critical and widespread vulnerability class in modern web applications and APIs. Access control (authorization) is the mechanism that enforces policies ensuring that authenticated users cannot act outside their intended permissions.
+
+When access control fails, attackers can:
+- Access, modify, or delete sensitive data of other users (Horizontal Privilege Escalation / IDOR)
+- Elevate privileges to administrative or supervisor roles (Vertical Privilege Escalation)
+- Bypass business logic workflows and perform unauthorized operations
+- Force-browse to restricted endpoints or modify metadata (JWT tokens, session cookies, hidden form fields)
+- Exploit CORS misconfigurations to extract unauthorized API resources
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A01:2021 - Broken Access Control
+- **CWE-862**: Missing Authorization
+- **CWE-639**: Authorization Bypass Through User-Controlled Key (Insecure Direct Object References - IDOR)
+- **CWE-285**: Improper Authorization
+- **CWE-284**: Improper Access Control
+- **CWE-22**: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')
+- **CWE-280**: Improper Handling of Insufficient Permissions or Privileges
+- **CWE-306**: Missing Authentication for Critical Function
+- **CWE-863**: Incorrect Authorization
+- **CVSS v3.1 Score Range**: 7.5 - 9.8 (High to Critical)
+
+---
+
+## 3. Detailed Attack Vectors & Vulnerability Patterns
+
+### 3.1 Insecure Direct Object References (IDOR / BOLA)
+IDOR occurs when an application exposes a reference to an internal database object (such as an integer ID, UUID, or filename) in a request without verifying that the requesting user owns or has permission to access that specific record.
+
+#### Vulnerable Implementation (Python / FastAPI):
+```python
+# VULNERABLE: Direct access to user profile by ID parameter without ownership verification
+@app.get("/api/v1/invoices/{invoice_id}")
+async def get_invoice(invoice_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    # Flaw: No check that invoice.user_id == current_user.id or current_user.is_admin
+    return invoice
+```
+
+#### Remediated Secure Implementation (Python / FastAPI):
+```python
+# SECURE: Strict ownership and tenant isolation check
+@app.get("/api/v1/invoices/{invoice_id}")
+async def get_invoice(invoice_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    query = db.query(Invoice).filter(Invoice.id == invoice_id)
+    
+    # Enforce multi-tenancy & ownership scope
+    if not current_user.has_role("BILLING_ADMIN"):
+        query = query.filter(Invoice.organization_id == current_user.organization_id, Invoice.user_id == current_user.id)
+    
+    invoice = query.first()
+    if not invoice:
+        # Prevent resource enumeration by returning 404 instead of 403
+        raise HTTPException(status_code=404, detail="Invoice not found or access denied")
+    return invoice
+```
+
+### 3.2 Vertical Privilege Escalation (Missing Role-Based Access Control)
+Occurs when an administrative endpoint or privileged function is exposed without enforcing server-side role verification.
+
+#### Vulnerable Implementation (Node.js / Express):
+```javascript
+// VULNERABLE: Only verifies authentication, ignores user role
+app.delete('/api/users/:id', authenticateToken, async (req, res) => {
+    // Flaw: Any logged-in regular user can delete any account
+    await db.deleteUser(req.params.id);
+    res.json({ message: 'User deleted successfully' });
+});
+```
+
+#### Remediated Secure Implementation (Node.js / Express):
+```javascript
+// SECURE: Middleware checks authentication AND explicit role authorization
+const requireRole = (requiredRole) => {
+    return (req, res, next) => {
+        if (!req.user || !req.user.roles.includes(requiredRole)) {
+            return res.status(403).json({ error: 'Access Denied: Insufficient permissions' });
+        }
+        next();
+    };
+};
+
+app.delete('/api/users/:id', authenticateToken, requireRole('SUPER_ADMIN'), async (req, res) => {
+    await db.deleteUser(req.params.id);
+    res.json({ message: 'User deleted successfully' });
+});
+```
+
+### 3.3 Path Traversal & File System Access Control (CWE-22)
+Occurs when user input is used to construct a filesystem path without strict canonicalization and boundary validation.
+
+#### Vulnerable Implementation (Python):
+```python
+# VULNERABLE: User controls filename, allows '../' directory traversal
+@app.get("/download")
+def download_file(filename: str):
+    base_dir = "/var/www/uploads"
+    file_path = os.path.join(base_dir, filename) # Attacker sends: ../../../etc/passwd
+    return FileResponse(file_path)
+```
+
+#### Remediated Secure Implementation (Python):
+```python
+# SECURE: Path resolution, canonicalization, and strict containment verification
+import os
+from pathlib import Path
+
+@app.get("/download")
+def download_file(filename: str, current_user: User = Depends(get_current_user)):
+    base_dir = Path("/var/www/uploads").resolve()
+    # Sanitize and resolve target path
+    safe_filename = os.path.basename(filename)
+    target_path = (base_dir / safe_filename).resolve()
+    
+    # Verify target stays strictly inside base directory
+    if not target_path.is_relative_to(base_dir) or not target_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    return FileResponse(str(target_path))
+```
+
+---
+
+## 4. Comprehensive Mitigation & Defensive Architecture
+
+1. **Deny by Default Architecture**:
+   - Every endpoint, controller, and microservice must deny access unless an explicit authorization policy evaluates to `TRUE`.
+2. **Implement Server-Side Access Control**:
+   - Never rely on client-side routing, hidden HTML buttons, or disabled UI fields for security.
+3. **Adopt Attribute-Based & Role-Based Access Control (ABAC / RBAC)**:
+   - Combine subject roles, resource ownership, tenant ID, and context (time, IP, MFA status) for access decisions.
+4. **Enforce Multi-Tenancy Scoping in Query Layer**:
+   - Apply global ORM filters or tenant interceptors ensuring queries automatically append `WHERE tenant_id = :current_tenant`.
+5. **Disable Directory Listing and Web Server Auto-Indexing**:
+   - Configure Nginx, Apache, or cloud CDN to disallow browsing root directories.
+6. **Audit and Log All Access Failures**:
+   - Log all 401 Unauthorized and 403 Forbidden events with user ID, IP address, target resource, and timestamp for SIEM alerting.
+7. **Rate Limit API Endpoints**:
+   - Implement token-bucket or sliding-window rate limiting on all resource identifiers to defeat IDOR automated enumeration.

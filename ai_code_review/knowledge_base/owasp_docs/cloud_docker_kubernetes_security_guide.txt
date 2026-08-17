@@ -1,0 +1,100 @@
+# Cloud, Docker & Kubernetes Infrastructure Hardening Master Guide
+
+## 1. Executive Summary & Overview
+Modern cloud-native applications run inside containerized environments managed by Kubernetes (EKS, GKE, AKS) and cloud providers (AWS, GCP, Azure). Containerization provides packaging consistency, but containers share the host Linux kernel; a container escape or privilege escalation flaw can compromise the entire cluster.
+
+---
+
+## 2. Dockerfile & Container Image Security Best Practices
+
+### 2.1 Never Run as Root User inside Containers
+By default, Docker containers run as `root` (UID 0). If a container is breached or a runtime escape occurs (CVE-2024-21626 / runc), the attacker gains root access to the host kernel.
+
+#### Secure Multi-Stage Dockerfile (Node.js Example):
+```dockerfile
+# ── Stage 1: Build ──
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+
+# ── Stage 2: Minimal Distroless Production Runtime ──
+FROM gcr.io/distroless/nodejs20-debian12:nonroot
+WORKDIR /app
+COPY --from=builder --chown=nonroot:nonroot /app/dist ./dist
+COPY --from=builder --chown=nonroot:nonroot /app/node_modules ./node_modules
+COPY --from=builder --chown=nonroot:nonroot /app/package.json ./package.json
+
+USER nonroot:nonroot
+EXPOSE 8080
+ENV NODE_ENV=production
+CMD ["dist/main.js"]
+```
+
+---
+
+### 2.2 Container Hardening Checklist
+1. **Read-Only Root Filesystem**: Mount container root filesystems as read-only (`readOnlyRootFilesystem: true`) so attackers cannot drop malware binaries or modify scripts.
+2. **Drop Linux Capabilities**: Drop all default kernel capabilities and retain only those strictly required: `cap_drop: ["ALL"]`.
+3. **No SUID/SGID Binaries**: Strip setuid and setgid bits from container base images.
+4. **Vulnerability Image Scanning**: Scan container layers with `Trivy` or `Grype` during CI/CD to block images with Critical CVEs from reaching registry.
+
+---
+
+## 3. Kubernetes Pod Security Standards & Hardening
+
+### 3.1 Hardened Kubernetes Pod Security Context:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secure-api-service
+  namespace: production
+spec:
+  replicas: 3
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: registry.enterprise.com/api:v1.4.2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
+```
+
+---
+
+### 3.2 Kubernetes Network Policies (Micro-Segmentation)
+By default, all pods in a Kubernetes cluster can communicate with all other pods. Enforce default-deny network policies to restrict lateral movement.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: production
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+```

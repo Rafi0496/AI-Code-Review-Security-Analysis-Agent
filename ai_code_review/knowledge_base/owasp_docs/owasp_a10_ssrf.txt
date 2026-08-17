@@ -1,0 +1,116 @@
+# OWASP A10:2021 – Server-Side Request Forgery (SSRF) Master Reference
+
+## 1. Executive Summary & Overview
+Server-Side Request Forgery (SSRF) is ranked #10 in the OWASP Top 10 (2021). SSRF vulnerabilities occur whenever a web application fetches a remote resource (e.g. image, webhook, URL preview, file download) based on a user-supplied URL without properly validating the destination address.
+
+An attacker can coerce the backend application server into making HTTP/TCP requests to:
+- Internal-only network services (Redis, Elasticsearch, internal microservices, databases)
+- Cloud Instance Metadata Services (AWS IMDS `169.254.169.254`, GCP `metadata.google.internal`, Azure IMDS)
+- Localhost loopback addresses (`127.0.0.1`, `[::1]`, `0.0.0.0`)
+- Exfiltrate cloud IAM credentials, STS tokens, and private infrastructure keys (e.g. Capital One breach)
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A10:2021 - Server-Side Request Forgery (SSRF)
+- **CWE-918**: Server-Side Request Forgery (SSRF)
+- **CVSS v3.1 Score Range**: 7.5 - 10.0 (High to Critical - Cloud Account Takeover)
+
+---
+
+## 3. Deep Technical Analysis & Vulnerability Patterns
+
+### 3.1 Cloud Metadata Exfiltration (AWS IMDSv1)
+Cloud providers host internal metadata services on link-local IP `169.254.169.254`. In AWS IMDSv1, a simple unauthenticated GET request yields full IAM role temporary credentials.
+
+#### Vulnerable Implementation (Python / requests):
+```python
+# VULNERABLE: Direct HTTP request to user-supplied URL
+import requests
+
+@app.post("/api/fetch-avatar")
+def fetch_avatar(image_url: str):
+    # Attacker sends: http://169.254.169.254/latest/meta-data/iam/security-credentials/production-role
+    # Or: http://127.0.0.1:6379/ (Redis flushall)
+    response = requests.get(image_url, timeout=5) # CRITICAL SSRF
+    return Response(content=response.content, media_type="image/png")
+```
+
+---
+
+### 3.2 DNS Rebinding & Bypass Techniques
+Attackers bypass naive string blacklists (`if "127.0.0.1" in url`) using:
+- Hex / Decimal / Octal IP formats (`http://2130706433/` or `http://0x7f000001`)
+- IPv6 loopback (`http://[::1]/` or `http://[::ffff:127.0.0.1]/`)
+- DNS Rebinding: Attacker domain resolves to public IP on first DNS query, then resolves to `127.0.0.1` on the second query.
+- Enclosed alphanumeric characters (`①⑥⑨.②⑤④.①⑥⑨.②⑤④`)
+
+---
+
+### 3.3 Remediated Secure Implementation (Strict IP Parsing, Private Subnet Rejection & DNS Pinning):
+```python
+# SECURE: Safe HTTP Client with IP resolution verification and private subnet block
+import ipaddress
+import socket
+import urllib.parse
+import requests
+
+# Private and link-local IP ranges forbidden from egress
+BLOCKED_NETWORKS = [
+    ipaddress.ip_network('127.0.0.0/8'),      # Loopback
+    ipaddress.ip_network('10.0.0.0/8'),       # Private Class A
+    ipaddress.ip_network('172.16.0.0/12'),    # Private Class B
+    ipaddress.ip_network('192.168.0.0/16'),   # Private Class C
+    ipaddress.ip_network('169.254.0.0/16'),   # Link-local / Cloud Metadata
+    ipaddress.ip_network('0.0.0.0/8'),        # Current network
+    ipaddress.ip_network('::1/128'),          # IPv6 Loopback
+    ipaddress.ip_network('fc00::/7'),         # IPv6 Private
+    ipaddress.ip_network('fe80::/10'),        # IPv6 Link-local
+]
+
+def validate_and_fetch_url(url: str, max_bytes: int = 2 * 1024 * 1024) -> bytes:
+    parsed = urllib.parse.urlparse(url)
+    
+    # 1. Scheme Whitelist (Strictly HTTP/HTTPS)
+    if parsed.scheme not in ('http', 'https'):
+        raise ValueError("Invalid URL scheme. Only HTTP/HTTPS allowed.")
+        
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("Invalid hostname.")
+
+    # 2. Resolve DNS to IP addresses
+    try:
+        addr_info = socket.getaddrinfo(hostname, parsed.port or (443 if parsed.scheme == 'https' else 80), proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise ValueError("DNS Resolution failed.")
+
+    # 3. Verify ALL resolved IP addresses are public
+    for family, _, _, _, sockaddr in addr_info:
+        ip_str = sockaddr[0]
+        ip_obj = ipaddress.ip_address(ip_str)
+        
+        for blocked_net in BLOCKED_NETWORKS:
+            if ip_obj in blocked_net:
+                raise ValueError(f"SSRF Protection: Access to restricted network {ip_str} is forbidden.")
+
+    # 4. Fetch with strict timeouts, stream limit, and disable redirects to prevent redirect-based SSRF
+    response = requests.get(url, timeout=(3.0, 5.0), allow_redirects=False, stream=True)
+    response.raise_for_status()
+    
+    # Enforce size limit
+    content = b""
+    for chunk in response.iter_content(chunk_size=8192):
+        content += chunk
+        if len(content) > max_bytes:
+            raise ValueError("Response payload exceeds maximum allowed size.")
+            
+    return content
+```
+
+---
+
+## 4. Cloud Infrastructure Hardening for SSRF
+1. **Enforce AWS IMDSv2**: Require session tokens (`HttpPutResponseHopLimit: 1`) on all EC2 instances and ECS containers. IMDSv2 requires a `X-aws-ec2-metadata-token` header which cannot be obtained via simple GET SSRF.
+2. **Kubernetes Network Policies**: Block outbound traffic from application pods to `169.254.169.254/32` using Calico or Cilium network policies.
+3. **Egress Proxy / DMZ Architecture**: Route all external HTTP requests through an isolated forward proxy that strictly enforces egress firewalls.

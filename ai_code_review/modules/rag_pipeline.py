@@ -160,6 +160,10 @@ class RAGPipeline:
             print(f"[RAG] Retrieve error: {e}")
             return []
 
+    def get_doc_count(self) -> int:
+        """Returns the number of indexed chunks in the knowledge base."""
+        return self._doc_count
+
     def get_context_string(self, query: str, top_k: int = 3) -> str:
         """
         Returns retrieved chunks as a single formatted string for LLM context.

@@ -1,88 +1,71 @@
-# SQL Injection — OWASP A03:2021
+# SQL Injection (SQLi) & Database Security — OWASP A03:2021 Master Reference
 
-## What is SQL Injection?
-
-SQL Injection (SQLi) is a code injection technique that exploits security vulnerabilities
-in an application's database interaction layer. It occurs when user-controlled input is
-inserted directly into SQL queries without proper sanitization or parameterization.
+## 1. What is SQL Injection?
+SQL Injection (SQLi) is a security vulnerability where an attacker manipulates database queries by inserting or injecting malicious SQL code through user inputs. SQLi occurs when applications improperly sanitize or concatenate user input directly into SQL statements without using parameterized queries or prepared statements.
 
 ---
 
-## Why is it Dangerous?
-
-An attacker who successfully exploits SQL Injection can:
-- Bypass authentication (e.g., login as admin without credentials)
-- Read sensitive data from the database (usernames, passwords, credit cards)
-- Modify or delete database records
-- Execute administrative operations on the database server
-- In some cases, execute OS commands on the database server
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A03:2021 - Injection
+- **CWE-89**: Improper Neutralization of Special Elements used in an SQL Command
+- **CVSS v3.1 Score**: 9.8 (Critical)
 
 ---
 
-## OWASP Classification
+## 3. The 3 Major Types of SQL Injection
 
-OWASP Top 10 2021 — A03: Injection
-CWE-89: Improper Neutralization of Special Elements used in an SQL Command
-Severity: Critical
+### 3.1 In-Band SQLi (Classic)
+The attacker uses the same channel of communication to launch the attack and gather results.
+- **Error-Based SQLi**: Forcing the database to produce verbose error messages revealing table names, schema definitions, and column values.
+- **UNION-Based SQLi**: Appending `UNION SELECT` statements to combine results from original queries with sensitive tables (e.g. `users`, `credit_cards`).
+
+### 3.2 Inferential SQLi (Blind SQLi)
+No data is directly transferred via web response. The attacker reconstructs data bit-by-bit by sending payloads and observing database behavior.
+- **Boolean Blind SQLi**: Injecting conditions (`AND 1=1` vs `AND 1=2`) and observing HTTP response differences (e.g. page length or status code).
+- **Time-Based Blind SQLi**: Injecting time-delay functions (e.g. `pg_sleep(5)`, `WAITFOR DELAY '0:0:5'`) to verify conditions based on server response latency.
+
+### 3.3 Out-of-Band SQLi
+Used when the server is too slow or responses are completely hidden. The attacker triggers external DNS or HTTP requests from the database server to an attacker-controlled server (e.g. Oracle `UTL_HTTP` or SQL Server `xp_dirtree`).
 
 ---
 
-## Vulnerable Code Examples
+## 4. Vulnerable vs Remediated Code Examples
 
-1. Python — String concatenation (VULNERABLE):
+### 4.1 Python / Raw SQL
 ```python
-username = request.GET["username"]
-query = "SELECT * FROM users WHERE username = '" + username + "'"
-cursor.execute(query)
+# VULNERABLE: Direct f-string interpolation
+cursor.execute(f"SELECT * FROM accounts WHERE owner_id = '{user_id}'")
+
+# SECURE: Parameterized Query
+cursor.execute("SELECT * FROM accounts WHERE owner_id = %s", (user_id,))
 ```
 
-2. Python — f-string (VULNERABLE):
-```python
-user_id = request.args.get("id")
-cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
-```
-
-3. Java — Statement (VULNERABLE):
+### 4.2 Java / JDBC
 ```java
-String username = request.getParameter("username");
-String query = "SELECT * FROM users WHERE username = '" + username + "'";
+// VULNERABLE: String concatenation
 Statement stmt = conn.createStatement();
-ResultSet rs = stmt.executeQuery(query);
-```
+ResultSet rs = stmt.executeQuery("SELECT * FROM users WHERE username = '" + username + "'");
 
----
-
-## Secure Code Examples
-
-1. Python — Parameterized query (SAFE):
-```python
-username = request.GET["username"]
-cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-```
-
-2. Python — SQLAlchemy ORM (SAFE):
-```python
-user = session.query(User).filter(User.username == username).first()
-```
-
-3. Java — PreparedStatement (SAFE):
-```java
-String username = request.getParameter("username");
-PreparedStatement pstmt = conn.prepareStatement(
-    "SELECT * FROM users WHERE username = ?"
-);
+// SECURE: PreparedStatement
+PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM users WHERE username = ?");
 pstmt.setString(1, username);
 ResultSet rs = pstmt.executeQuery();
 ```
 
+### 4.3 Node.js / PostgreSQL (pg library)
+```javascript
+// VULNERABLE:
+// const res = await pool.query(`SELECT * FROM users WHERE email = '${email}'`);
+
+// SECURE: Parameterized array
+const res = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+```
+
 ---
 
-## Prevention Checklist
-
-- Always use parameterized queries or prepared statements
-- Use an ORM (SQLAlchemy, Django ORM, Hibernate) wherever possible
-- Apply principle of least privilege to database accounts
-- Validate and sanitize all user inputs before using them in queries
-- Use stored procedures with parameterization
-- Enable database query logging to detect injection attempts
-- Regularly test with automated SQL injection scanners (sqlmap, OWASP ZAP)
+## 5. Defense-in-Depth Checklist
+1. **Always Use Parameterized Queries & Prepared Statements**.
+2. **Use Enterprise ORMs** (SQLAlchemy, Prisma, Hibernate, Entity Framework).
+3. **Database Account Least Privilege**: Restrict DB user permissions (no `SUPERUSER`, `DROP TABLE`, or `GRANT` permissions).
+4. **Stored Procedures**: If used, ensure parameters inside stored procedures are also parameterized rather than dynamically concatenated.
+5. **WAF Rules**: Deploy Web Application Firewalls (AWS WAF, Cloudflare) with SQLi inspection rules as a defense-in-depth shield.

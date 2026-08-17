@@ -1,0 +1,111 @@
+# Java & Spring Boot Enterprise Secure Coding Master Guide
+
+## 1. Executive Summary & Overview
+Java is the foundational language of enterprise applications, financial systems, and large-scale microservices. Due to its static typing, robust memory safety (garbage collection), and mature ecosystem (Spring Boot, Jakarta EE), Java offers strong security primitives. However, improper configuration, unsafe deserialization, XML external entity (XXE) parsing, and SQL injection remain significant threats.
+
+---
+
+## 2. Core Java Security Vulnerabilities & Defenses
+
+### 2.1 SQL Injection Prevention with JDBC & JPA/Hibernate
+- **Flaw**: Using string concatenation with `java.sql.Statement` or JPQL.
+- **Rule**: Always use `java.sql.PreparedStatement` or parameterized Spring Data JPA repository queries.
+
+```java
+// VULNERABLE:
+// String sql = "SELECT * FROM users WHERE email = '" + userEmail + "'";
+// Statement stmt = conn.createStatement();
+// ResultSet rs = stmt.executeQuery(sql);
+
+// SECURE: JDBC PreparedStatement
+String sql = "SELECT id, email, password_hash, role FROM users WHERE email = ?";
+try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    pstmt.setString(1, userEmail);
+    try (ResultSet rs = pstmt.executeQuery()) {
+        if (rs.next()) {
+            // Process user
+        }
+    }
+}
+```
+
+```java
+// SECURE: Spring Data JPA Parameterized Query
+public interface UserRepository extends JpaRepository<User, Long> {
+    @Query("SELECT u FROM User u WHERE u.email = :email AND u.status = 'ACTIVE'")
+    Optional<User> findActiveUserByEmail(@Param("email") String email);
+}
+```
+
+---
+
+### 2.2 XML External Entity (XXE) Prevention (CWE-611)
+- **Flaw**: Default XML parsers (`DocumentBuilderFactory`, `SAXParserFactory`, `XMLInputFactory`) resolve external DTD entities, allowing local file disclosure (`/etc/passwd`) or SSRF.
+- **Rule**: Completely disable `DOCTYPE` declarations and external general/parameter entities before parsing XML.
+
+```java
+// SECURE: Hardened XML DocumentBuilderFactory against XXE
+DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+dbf.setXIncludeAware(false);
+dbf.setExpandEntityReferences(false);
+
+DocumentBuilder db = dbf.newDocumentBuilder();
+Document doc = db.parse(new InputSource(new StringReader(xmlInput)));
+```
+
+---
+
+### 2.3 Safe Deserialization & ObjectInputStream Hardening (CWE-502)
+- **Flaw**: Calling `ObjectInputStream.readObject()` on untrusted streams leads to Remote Code Execution via gadget chains (Commons Collections, Spring Framework).
+- **Rule**: Avoid Java native serialization. Use JSON (`Jackson` with polymorphic typing disabled) or restrict classes using `ValidatingObjectInputStream` / `ObjectInputFilter` (Java 9+).
+
+```java
+// SECURE (Java 9+ ObjectInputFilter):
+ObjectInputStream ois = new ObjectInputStream(inputStream);
+ObjectInputFilter filter = ObjectInputFilter.Config.createFilter(
+    "com.enterprise.dto.*;java.base/*;!*" // Allow only explicit DTOs and java.base primitives
+);
+ois.setObjectInputFilter(filter);
+Object obj = ois.readObject();
+```
+
+---
+
+### 2.4 Spring Security Hardening & CSRF Protection
+- Enforce CSRF protection on state-changing endpoints (POST, PUT, DELETE, PATCH).
+- Configure strict CORS and Security Headers.
+
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/public/**").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated()
+            )
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+            .headers(headers -> headers
+                .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'"))
+                .frameOptions(frame -> frame.deny())
+            );
+        return http.build();
+    }
+    
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
+    }
+}
+```

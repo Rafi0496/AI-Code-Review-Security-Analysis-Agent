@@ -1,0 +1,159 @@
+# OWASP A02:2021 – Cryptographic Failures & Data Protection Master Reference
+
+## 1. Executive Summary & Overview
+Cryptographic Failures (previously titled "Sensitive Data Exposure") is ranked #2 in the OWASP Top 10. This category encompasses flaws related to cryptography (or lack thereof), which directly result in the exposure of sensitive data—including credentials, payment card data (PCI-DSS), personally identifiable information (PII/GDPR/HIPAA), health records, and cryptographic keys.
+
+Key root causes include:
+- Transmission of sensitive data in cleartext (HTTP, FTP, Telnet, unencrypted SMTP)
+- Use of broken or obsolete cryptographic algorithms (DES, 3DES, RC4, MD5, SHA-1)
+- Flawed key generation, key reuse, hardcoded secrets, and improper initialization vectors (IVs)
+- Insecure password storage (unsalted hashes, plain SHA-256 without key stretching)
+- Missing Transport Layer Security (TLS) enforcement, lack of HSTS, and weak cipher suites
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A02:2021 - Cryptographic Failures
+- **CWE-327**: Use of a Broken or Risky Cryptographic Algorithm
+- **CWE-328**: Use of Weak Hash
+- **CWE-798**: Use of Hard-coded Credentials
+- **CWE-319**: Cleartext Transmission of Sensitive Information
+- **CWE-311**: Missing Encryption of Sensitive Data
+- **CWE-326**: Inadequate Encryption Strength
+- **CWE-330**: Use of Insufficiently Random Values
+- **CWE-916**: Use of Password Hash With Insufficient Computational Effort
+- **CVSS v3.1 Score Range**: 7.5 - 9.8 (High to Critical)
+
+---
+
+## 3. Deep Technical Analysis & Vulnerability Patterns
+
+### 3.1 Insecure Password Hashing & Key Derivation (CWE-916 / CWE-328)
+Standard cryptographic hash functions (such as MD5, SHA-1, SHA-256, SHA-512) are designed for speed in message integrity verification and are vulnerable to GPU/ASIC brute-force dictionary attacks (billions of hashes per second).
+
+#### Vulnerable Implementation (Python):
+```python
+# VULNERABLE: SHA-256 without salt or computational work factor
+import hashlib
+
+def hash_password(password: str) -> str:
+    # High vulnerability: Rainbow table attackable in seconds
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    return hash_password(password) == stored_hash
+```
+
+#### Remediated Secure Implementation (Python - Argon2id / Bcrypt):
+```python
+# SECURE: Adaptive salted hashing with memory-hard Argon2id or Bcrypt
+import bcrypt
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+
+# Option A: Argon2id (OWASP Recommended Gold Standard)
+ph = PasswordHasher(
+    time_cost=3,        # 3 iterations
+    memory_cost=65536,  # 64 MB memory
+    parallelism=4,      # 4 parallel threads
+    hash_len=32,
+    salt_len=16
+)
+
+def secure_hash_argon2(password: str) -> str:
+    return ph.hash(password)
+
+def secure_verify_argon2(password: str, hash_str: str) -> bool:
+    try:
+        return ph.verify(hash_str, password)
+    except VerifyMismatchError:
+        return False
+
+# Option B: Bcrypt (Work factor >= 12)
+def secure_hash_bcrypt(password: str) -> str:
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+def secure_verify_bcrypt(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+```
+
+### 3.2 Insecure Symmetric Encryption & Electronic Codebook (ECB) Mode (CWE-327)
+Using AES in ECB mode reveals structural data patterns because identical plaintext blocks produce identical ciphertext blocks. Furthermore, reusing Initialization Vectors (IVs) in CBC or GCM mode destroys cryptographic integrity.
+
+#### Vulnerable Implementation (Python / PyCryptodome):
+```python
+# VULNERABLE: AES with ECB mode (No IV, pattern leakage) or hardcoded key
+from Crypto.Cipher import AES
+
+HARDCODED_KEY = b"1234567890123456" # CWE-798
+
+def encrypt_data_insecure(plaintext: bytes) -> bytes:
+    cipher = AES.new(HARDCODED_KEY, AES.MODE_ECB) # Flaw: ECB mode
+    # Padding omitted for brevity
+    return cipher.encrypt(plaintext)
+```
+
+#### Remediated Secure Implementation (AES-256-GCM Authenticated Encryption):
+```python
+# SECURE: AES-256-GCM with dynamic cryptographically secure nonce and authentication tag
+import os
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+class SecretManagerEncryption:
+    def __init__(self):
+        # Retrieve 256-bit key from environment or AWS KMS / HashiCorp Vault
+        key_hex = os.getenv("MASTER_ENCRYPTION_KEY_HEX")
+        if not key_hex or len(key_hex) != 64:
+            raise ValueError("Invalid master encryption key length (must be 32 bytes hex)")
+        self.key = bytes.fromhex(key_hex)
+        self.aesgcm = AESGCM(self.key)
+
+    def encrypt(self, plaintext: bytes, associated_data: bytes = b"") -> bytes:
+        # Generate fresh 96-bit (12-byte) random nonce for every operation
+        nonce = os.urandom(12)
+        # AESGCM automatically appends 16-byte authentication tag
+        ciphertext = self.aesgcm.encrypt(nonce, plaintext, associated_data)
+        # Return nonce concatenated with ciphertext
+        return nonce + ciphertext
+
+    def decrypt(self, payload: bytes, associated_data: bytes = b"") -> bytes:
+        if len(payload) < 28: # 12 bytes nonce + 16 bytes auth tag
+            raise ValueError("Invalid ciphertext length")
+        nonce = payload[:12]
+        ciphertext = payload[12:]
+        return self.aesgcm.decrypt(nonce, ciphertext, associated_data)
+```
+
+### 3.3 Transport Layer Security (TLS) & Secure HTTP Headers
+- Force all traffic to **TLS 1.3** (or minimum TLS 1.2 with secure cipher suites).
+- Implement **HTTP Strict Transport Security (HSTS)** with `includeSubDomains` and `preload`.
+- Enforce secure cookie attributes: `Secure; HttpOnly; SameSite=Strict`.
+
+#### Secure Nginx Configuration:
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name api.enterprise.com;
+
+    ssl_certificate /etc/letsencrypt/live/api.enterprise.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.enterprise.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Content-Security-Policy "default-src 'self';" always;
+}
+```
+
+---
+
+## 4. Key Management & Vault Best Practices
+1. **Never Hardcode Secrets**: Keep secrets out of git history. Use tools like `git-secrets`, `trufflehog`, or `gitleaks` in pre-commit hooks.
+2. **Dynamic Key Rotation**: Rotate data encryption keys (DEK) and key encryption keys (KEK) at least annually.
+3. **Envelope Encryption**: Encrypt data with a short-lived local Data Key, and encrypt the Data Key with a root Key Management Service (KMS) Customer Master Key (CMK).
+4. **Use Constant-Time Comparisons**: Prevent timing attacks when verifying HMACs or signatures using `hmac.compare_digest(a, b)`.

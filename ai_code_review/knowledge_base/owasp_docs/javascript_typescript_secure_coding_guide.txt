@@ -1,0 +1,116 @@
+# JavaScript, TypeScript & Node.js Enterprise Secure Coding Master Guide
+
+## 1. Executive Summary & Overview
+JavaScript and TypeScript power the modern web, spanning frontend browser applications (React, Next.js, Vue, Angular) and backend server runtimes (Node.js, Express, Fastify, Deno, Bun). Because JavaScript relies on single-threaded event loops, dynamic prototypes, and flexible type coercion, specific vulnerability patterns require diligent engineering practices.
+
+---
+
+## 2. Core Vulnerabilities & Defenses
+
+### 2.1 Prototype Pollution (CWE-1321)
+- **Flaw**: Modifying `__proto__`, `constructor.prototype`, or merging untrusted JSON objects recursively into base JavaScript objects, polluting the global `Object.prototype` and leading to privilege escalation, property injection, or RCE.
+- **Rule**: Sanitize keys before merging, use `Object.create(null)` for map dictionaries, or freeze base prototypes.
+
+```javascript
+// SECURE: Safe deep merge protecting against Prototype Pollution
+function safeMerge(target, source) {
+    for (const key of Object.keys(source)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+            continue; // Ignore dangerous prototype keys
+        }
+        if (typeof source[key] === 'object' && source[key] !== null) {
+            if (!target[key]) target[key] = Array.isArray(source[key]) ? [] : {};
+            safeMerge(target[key], source[key]);
+        } else {
+            target[key] = source[key];
+        }
+    }
+    return target;
+}
+```
+
+---
+
+### 2.2 Cross-Site Scripting (XSS) Prevention (CWE-79)
+- **Flaw**: Using `dangerouslySetInnerHTML`, `innerHTML`, `document.write`, or `eval()`.
+- **Rule**: Always sanitize HTML inputs using **DOMPurify** before rendering, or rely on React's default text escaping (`<div>{userInput}</div>`).
+
+```javascript
+// SECURE (React / DOMPurify):
+import DOMPurify from 'dompurify';
+
+function SafeHtmlViewer({ untrustedHtml }) {
+    const cleanHtml = DOMPurify.sanitize(untrustedHtml, {
+        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'ul', 'li', 'code', 'pre'],
+        ALLOWED_ATTR: ['href', 'title', 'target']
+    });
+
+    return <div dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
+}
+```
+
+---
+
+### 2.3 Regular Expression Denial of Service (ReDoS) (CWE-1333)
+- **Flaw**: Using catastrophic backtracking regex patterns (e.g. `^([a-zA-Z0-9]+)+$`) against user inputs.
+- **Rule**: Keep regular expressions linear, avoid nested quantifiers, or use safe regex validators (`validator.js` or `re2`).
+
+```javascript
+// SECURE: Using non-backtracking input validation
+const validator = require('validator');
+
+function validateEmail(email) {
+    return validator.isEmail(email, { allow_utf8_local_part: false });
+}
+```
+
+---
+
+### 2.4 Safe Node.js Child Process Execution (CWE-78)
+- **Flaw**: Calling `child_process.exec()` with concatenated user strings spawns a shell and enables command injection.
+- **Rule**: Always use `child_process.execFile()` or `child_process.spawn()` passing arguments in an array.
+
+```javascript
+// VULNERABLE:
+// const { exec } = require('child_process');
+// exec(`convert ${userInput} output.png`); // Command Injection
+
+// SECURE:
+const { execFile } = require('child_process');
+execFile('convert', [userInputPath, outputPath], { timeout: 10000 }, (error, stdout, stderr) => {
+    if (error) {
+        console.error('Execution error:', error);
+        return;
+    }
+    console.log('Conversion successful');
+});
+```
+
+---
+
+### 2.5 Security Headers with Helmet.js
+```javascript
+const express = require('express');
+const helmet = require('helmet');
+
+const app = express();
+
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "https://fonts.googleapis.com"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https://api.enterprise.com"],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+        },
+    },
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+    }
+}));
+```

@@ -1,93 +1,63 @@
-# Cross-Site Scripting (XSS) — OWASP A03:2021
+# Cross-Site Scripting (XSS) & Client-Side Code Injection — OWASP A03:2021 Master Reference
 
-## What is XSS?
+## 1. What is Cross-Site Scripting (XSS)?
+Cross-Site Scripting (XSS) is a client-side code injection attack in which malicious scripts (typically JavaScript) are injected into otherwise trusted web applications. When an unsuspecting user loads a web page containing the malicious payload, the browser executes the script in the context of the user's active session.
 
-Cross-Site Scripting (XSS) is a client-side code injection attack in which an attacker
-injects malicious scripts (usually JavaScript) into web pages viewed by other users.
-XSS attacks occur when an application includes unvalidated, unescaped user data in its
-output.
-
----
-
-## Types of XSS
-
-1. Reflected XSS — Malicious script is in the URL/request, reflected in the response
-2. Stored XSS — Malicious script is stored in the database and served to all visitors
-3. DOM-based XSS — Vulnerability in client-side JavaScript that processes user input
+Attackers leverage XSS to:
+- Steal sensitive session cookies, JWT access tokens, and local storage data
+- Capture user keystrokes (keylogging) and credentials
+- Perform unauthorized actions via the victim's authenticated browser session (client-side CSRF)
+- Deface websites, display phishing modals, or redirect users to malicious domains
 
 ---
 
-## OWASP Classification
-
-OWASP Top 10 2021 — A03: Injection (Cross-Site Scripting)
-CWE-79: Improper Neutralization of Input During Web Page Generation
-Severity: High to Critical (depending on impact)
-
----
-
-## Vulnerable Code Examples
-
-1. Python/Flask — Unescaped rendering (VULNERABLE):
-```python
-from flask import request, render_template_string
-@app.route("/search")
-def search():
-    query = request.args.get("q", "")
-    return render_template_string("<h1>Results for: " + query + "</h1>")
-```
-
-2. Python — Markup without escaping (VULNERABLE):
-```python
-from markupsafe import Markup
-def render_comment(comment):
-    return Markup("<p>" + comment + "</p>")
-```
-
-3. JavaScript — innerHTML (VULNERABLE):
-```javascript
-document.getElementById("output").innerHTML = userInput;
-```
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A03:2021 - Injection
+- **CWE-79**: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')
+- **CWE-80**: Improper Neutralization of Script-Related HTML Tags in a Web Page (Basic XSS)
+- **CWE-83**: Improper Neutralization of Script in Attributes in a Web Page
+- **CVSS v3.1 Score**: 6.1 - 9.0 (Medium to Critical)
 
 ---
 
-## Secure Code Examples
+## 3. The 3 Major Types of XSS
 
-1. Python — html.escape (SAFE):
-```python
-import html
-query = request.args.get("q", "")
-safe_query = html.escape(query)
-return f"<h1>Results for: {safe_query}</h1>"
-```
+### 3.1 Stored XSS (Persistent XSS)
+The malicious script is permanently stored in the target server's database (e.g. comment section, user profile bio, product review, forum post). When other users view the stored record, the script executes automatically. This is the most dangerous form of XSS.
 
-2. Python/Jinja2 — Auto-escaped template (SAFE):
-```python
-# Jinja2 auto-escapes variables in templates
-return render_template("search.html", query=query)
-# In search.html: <h1>Results for: {{ query }}</h1>
-```
+### 3.2 Reflected XSS (Non-Persistent XSS)
+The malicious payload is embedded in a URL parameter or HTTP request (e.g. search query, error message parameter) and immediately reflected back in the server's HTML response without sanitization.
 
-3. JavaScript — textContent (SAFE):
-```javascript
-document.getElementById("output").textContent = userInput;
-```
-
-4. Python — bleach for HTML sanitization (SAFE):
-```python
-import bleach
-allowed_tags = ["b", "i", "em", "strong"]
-clean_html = bleach.clean(user_html, tags=allowed_tags)
-```
+### 3.3 DOM-Based XSS (Client-Side XSS)
+The vulnerability exists entirely in client-side JavaScript. The server is not involved; client-side scripts read data from an untrusted Source (e.g. `location.search`, `location.hash`, `document.referrer`) and pass it to an unsafe Sink (e.g. `innerHTML`, `document.write`, `eval()`, `setTimeout()`).
 
 ---
 
-## Prevention Checklist
+## 4. Unsafe Sinks and Safe Alternatives in JavaScript
 
-- Always escape user data before rendering in HTML (html.escape in Python)
-- Use template engines with auto-escaping enabled (Jinja2, Thymeleaf)
-- Implement a Content Security Policy (CSP) header
-- Use textContent instead of innerHTML in JavaScript
-- Validate and sanitize all user inputs on the server side
-- Use HTTPOnly and Secure flags on session cookies
-- Encode data for the correct context (HTML, JS, CSS, URL)
-- Implement input validation with allowlists (not denylists)
+| Vulnerable Execution Sink | Safe Alternative |
+|---------------------------|------------------|
+| `element.innerHTML = data` | `element.textContent = data` or `DOMPurify.sanitize(data)` |
+| `document.write(data)` | `document.createElement()` + `appendChild()` |
+| `element.outerHTML = data` | `element.replaceWith()` |
+| `eval(data)` / `new Function(data)` | `JSON.parse(data)` |
+| `location.href = data` | Validate URL scheme against `https:` or use relative paths |
+
+---
+
+## 5. Defense-in-Depth Mitigation Architecture
+
+### 5.1 Context-Aware Output Encoding
+- **HTML Body Context**: Encode `&` -> `&amp;`, `<` -> `&lt;`, `>` -> `&gt;`, `"` -> `&quot;`, `'` -> `&#x27;`.
+- **HTML Attribute Context**: Strict alphanumeric whitelist or HTML attribute encoding.
+- **JavaScript Context**: JSON serialization with Unicode escaping (`json.dumps()` in Python).
+
+### 5.2 Content Security Policy (CSP Level 3)
+Deploy a restrictive Content Security Policy header that disallows inline script execution and restricts script sources to trusted origins with cryptographic nonces.
+
+```http
+Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-rAnd0m123'; object-src 'none'; base-uri 'self';
+```
+
+### 5.3 Cookie Hardening
+Set the `HttpOnly` flag on all sensitive authentication and session cookies so they cannot be accessed or stolen via `document.cookie` in the event of an XSS vulnerability.

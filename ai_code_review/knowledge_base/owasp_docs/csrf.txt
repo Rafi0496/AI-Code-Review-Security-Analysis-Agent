@@ -1,95 +1,80 @@
-# Cross-Site Request Forgery (CSRF) — OWASP A01:2021
+# Cross-Site Request Forgery (CSRF) & State-Changing Request Security — OWASP A01 / A07 Master Reference
 
-## What is CSRF?
+## 1. What is CSRF?
+Cross-Site Request Forgery (CSRF / XSRF) is an attack that forces an end user to execute unwanted, unauthorized actions on a web application in which they are currently authenticated. With a little help of social engineering (such as sending a link via email or chat), an attacker may trick the users of a web application into executing actions of the attacker's choosing.
 
-Cross-Site Request Forgery (CSRF) is an attack that tricks a victim's browser into
-making an unintended HTTP request to a web application in which the victim is
-authenticated. It exploits the trust that a web app has in the victim's browser.
-
----
-
-## How CSRF Works
-
-1. Victim logs in to legitimate website (e.g., bank.com) — session cookie is set
-2. Without logging out, victim visits an attacker-controlled malicious page
-3. Malicious page makes a cross-origin POST request to bank.com
-4. Browser automatically includes session cookie with the request
-5. Bank.com sees a valid session and processes the transfer
+If the victim is a normal user, a successful CSRF attack can force the user to perform state-changing requests like transferring funds, changing their password or email address, or making purchases. If the victim is an administrative account, CSRF can compromise the entire web application.
 
 ---
 
-## OWASP Classification
-
-OWASP Top 10 2021 — A01: Broken Access Control (CSRF subcategory)
-CWE-352: Cross-Site Request Forgery
-Severity: High
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A01:2021 (Broken Access Control) / A07:2021 (Identification and Authentication Failures)
+- **CWE-352**: Cross-Site Request Forgery (CSRF)
+- **CVSS v3.1 Score**: 8.8 (High)
 
 ---
 
-## Vulnerable Code Example
+## 3. How CSRF Works
+1. The victim logs into `bank.com` and receives a valid session cookie.
+2. Without logging out, the victim visits an attacker-controlled website `evil.com`.
+3. `evil.com` contains a hidden form that automatically submits a POST request to `bank.com/transfer`:
+```html
+<!-- Malicious payload on evil.com -->
+<form id="csrfForm" action="https://bank.com/api/transfer" method="POST">
+    <input type="hidden" name="recipient" value="attacker_account_999" />
+    <input type="hidden" name="amount" value="5000" />
+</form>
+<script>document.getElementById('csrfForm').submit();</script>
+```
+4. The victim's browser automatically attaches the `bank.com` session cookies to the cross-site request, and the bank processes the unauthorized transfer.
+
+---
+
+## 4. Remediation & Defense-in-Depth
+
+### 4.1 Modern Primary Defense: `SameSite` Cookie Attribute
+Configure all session and authentication cookies with `SameSite=Strict` or `SameSite=Lax`.
+
+- `SameSite=Strict`: Cookies are NEVER sent on cross-site requests (highest security).
+- `SameSite=Lax`: Cookies are withheld on cross-site subrequests (images, forms), but sent when navigating via top-level GET links.
 
 ```python
-# Django view — no CSRF protection (VULNERABLE)
-from django.views.decorators.csrf import csrf_exempt
-
-@csrf_exempt  # NEVER do this for state-changing operations
-def transfer_funds(request):
-    if request.method == "POST":
-        amount = request.POST.get("amount")
-        to_account = request.POST.get("to_account")
-        # Processes transfer with no CSRF validation
-        do_transfer(amount, to_account)
+# SECURE (FastAPI / Starlette Cookie Configuration):
+response.set_cookie(
+    key="session_id",
+    value=session_token,
+    httponly=True,       # Defeats XSS cookie theft
+    secure=True,         # Requires HTTPS
+    samesite="Strict",   # Defeats CSRF
+    max_age=3600
+)
 ```
 
 ---
 
-## Secure Code Examples
+### 4.2 Anti-CSRF Synchronizer Token Pattern
+Generate a cryptographically random, unpredictable token per session or per request, embed it into forms, and verify it on the server on all state-changing methods (POST, PUT, DELETE, PATCH).
 
-1. Django — Use built-in CSRF protection (SAFE):
 ```python
-# In settings.py — ensure this middleware is present:
-MIDDLEWARE = [
-    "django.middleware.csrf.CsrfViewMiddleware",
-    # ...
-]
+# SECURE (FastAPI / CSRF Token Middleware Verification):
+import hmac
+import secrets
 
-# In template:
-# <form method="post">{% csrf_token %}</form>
+def generate_csrf_token(session_id: str, secret_key: bytes) -> str:
+    random_nonce = secrets.token_hex(16)
+    signature = hmac.new(secret_key, f"{session_id}:{random_nonce}".encode('utf-8'), 'sha256').hexdigest()
+    return f"{random_nonce}:{signature}"
 
-# OR in view for APIs:
-from django.views.decorators.csrf import csrf_protect
-@csrf_protect
-def transfer_funds(request):
-    ...
-```
-
-2. Flask — Flask-WTF CSRF protection (SAFE):
-```python
-from flask_wtf.csrf import CSRFProtect
-csrf = CSRFProtect(app)
-
-# In template:
-# <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-```
-
-3. FastAPI — CSRF token validation (SAFE):
-```python
-from fastapi import Header, HTTPException
-
-async def verify_csrf(x_csrf_token: str = Header(...)):
-    if not validate_csrf_token(x_csrf_token):
-        raise HTTPException(status_code=403, detail="CSRF token invalid")
+def verify_csrf_token(token: str, session_id: str, secret_key: bytes) -> bool:
+    try:
+        random_nonce, signature = token.split(":")
+        expected_sig = hmac.new(secret_key, f"{session_id}:{random_nonce}".encode('utf-8'), 'sha256').hexdigest()
+        return hmac.compare_digest(signature, expected_sig)
+    except Exception:
+        return False
 ```
 
 ---
 
-## Prevention Checklist
-
-- Enable CSRF middleware in all web frameworks (Django CsrfViewMiddleware)
-- Include CSRF tokens in all state-changing forms
-- Validate CSRF tokens server-side on all POST/PUT/DELETE requests
-- Use SameSite=Strict or SameSite=Lax cookie attribute
-- Check the Referer/Origin header for AJAX requests
-- Implement CSRF protection for API endpoints that use cookie authentication
-- Never use @csrf_exempt on sensitive, state-changing endpoints
-- Use custom request headers (X-Requested-With) for AJAX to leverage CORS protection
+### 4.3 Custom Request Headers for REST APIs
+Enforce custom request headers (e.g. `X-Requested-With: XMLHttpRequest` or `X-CSRF-Token`) on all JSON APIs. Standard HTML `<form>` elements cannot set custom headers, defeating classic browser CSRF.

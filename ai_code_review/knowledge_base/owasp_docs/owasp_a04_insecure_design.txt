@@ -1,0 +1,63 @@
+# OWASP A04:2021 – Insecure Design & Threat Modeling Master Reference
+
+## 1. Executive Summary & Overview
+Insecure Design was introduced as a major new category in the OWASP Top 10 (2021) at position #4. It represents the realization that secure implementation (coding without bugs) cannot compensate for flawed architecture and missing security design controls. 
+
+Insecure design represents architectural and design weaknesses:
+- Lack of Threat Modeling in the software development lifecycle (SDLC)
+- Missing business logic rate limiting and anti-automation controls
+- Flawed trust boundary assumptions (trusting internal microservices implicitly)
+- Inability to handle fail-closed error states
+- Broken credential recovery, account takeover, or password reset workflows
+- Failure to segregate multi-tenant resources at the architectural boundary
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A04:2021 - Insecure Design
+- **CWE-1059**: Incomplete Documentation of Security Requirements
+- **CWE-656**: Reliance on Security Through Obscurity
+- **CWE-799**: Improper Control of Interaction Frequency (Missing Rate Limiting)
+- **CWE-840**: Business Logic Errors
+- **CWE-311**: Missing Encryption of Sensitive Data
+- **CWE-602**: Client-Side Enforcement of Server-Side Security
+- **CVSS v3.1 Score Range**: 6.5 - 9.0 (Medium to Critical)
+
+---
+
+## 3. Core Architectural Security Principles
+
+### 3.1 Defense in Depth
+Never rely on a single layer of defense. If a perimeter firewall or WAF fails, application-level authentication, role authorization, parameter validation, and database encryption must still prevent compromise.
+
+### 3.2 Principle of Least Privilege
+Users, service accounts, and cloud microservices must operate using only the minimal set of privileges required to perform their explicit function.
+
+### 3.3 Fail-Safe Defaults & Fail-Closed
+If an authorization system or rate limiter crashes or experiences a network partition, the application must default to denying access rather than opening access.
+
+### 3.4 Separation of Duties
+Critical actions (e.g. wire transfers above $10,000, production database drops, user role promotions) should require dual approval (four-eyes principle) or multi-step verification.
+
+---
+
+## 4. Threat Modeling Methodology (STRIDE Framework)
+Every architecture must undergo systematic threat modeling before coding:
+1. **Spoofing**: Can an attacker pretend to be another user or service? (*Mitigation: Strong authentication, mutual TLS, HMAC signatures*).
+2. **Tampering**: Can data in transit or at rest be modified? (*Mitigation: Digital signatures, cryptographic hashes, TLS, HMAC*).
+3. **Repudiation**: Can an attacker deny performing an action? (*Mitigation: Immutable audit logs with timestamping and cryptographic signing*).
+4. **Information Disclosure**: Can unauthorized parties view sensitive data? (*Mitigation: Encryption at rest, TLS in transit, proper access controls*).
+5. **Denial of Service**: Can resources be exhausted? (*Mitigation: Token bucket rate limiting, timeout policies, CDN caching, auto-scaling*).
+6. **Elevation of Privilege**: Can an unprivileged user execute admin commands? (*Mitigation: Strict RBAC/ABAC authorization checks*).
+
+---
+
+## 5. Architectural Design Flaws & Remediations
+
+### 5.1 Flawed Password Reset Workflow (Business Logic Bypass)
+- **Flawed Design**: Sending a short 4-digit PIN via email without rate limiting, allowing attackers to brute force the 10,000 possibilities in minutes.
+- **Secure Design**: Generate cryptographically random 256-bit URL-safe tokens (e.g. `secrets.token_urlsafe(32)`), store the SHA-256 hash of the token with a 15-minute expiration time, invalidate upon single use, and enforce strict per-IP and per-account rate limits.
+
+### 5.2 Anti-Automation & Account Lockout
+- Implement sliding-window rate limiting on all login, registration, and reset endpoints (e.g. max 5 attempts per 15 minutes per IP + user combination).
+- Use exponential backoff and challenge mechanisms (reCAPTCHA Enterprise, Cloudflare Turnstile).

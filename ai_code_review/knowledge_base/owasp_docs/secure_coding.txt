@@ -1,221 +1,47 @@
-# Secure Coding Standards & Best Practices
+# Enterprise Secure Coding Standards, Clean Architecture & Code Review Master Reference
 
-## 1. Input Validation
-
-Always validate all inputs at the server side using allowlists.
-Never rely solely on client-side validation.
-
-Rules:
-- Validate type, length, format, and range of all inputs
-- Use allowlist validation — only permit known-good values
-- Reject any input that does not strictly conform to specifications
-- Sanitize inputs before using them in queries, commands, or HTML rendering
-
-Examples:
-```python
-# Good: explicit type and length validation
-def validate_age(age_str: str) -> int:
-    if not age_str.isdigit():
-        raise ValueError("Age must be numeric")
-    age = int(age_str)
-    if not (0 < age < 150):
-        raise ValueError("Age must be between 1 and 149")
-    return age
-
-# Bad: no validation
-def process_age(age):
-    return int(age)  # Can raise on non-numeric, no range check
-```
+## 1. Executive Summary & Core Security Tenets
+Secure software development requires integrating defensive engineering into every phase of the Software Development Lifecycle (SDLC). Writing secure code is not merely avoiding known syntax mistakes; it is designing resilient, observable, and maintainable systems that fail safely when attacked or degraded.
 
 ---
 
-## 2. Authentication & Password Management
+## 2. Universal Secure Coding Tenets
 
-OWASP A07:2021 — Identification and Authentication Failures
+### 2.1 Never Trust Input (Zero Trust Input Validation)
+- All data originating from outside the application boundary (HTTP query params, headers, JSON bodies, uploaded files, environment variables, message queues, third-party APIs) must be validated against strict schemas (Pydantic, Zod, Joi, Bean Validation).
+- Prefer Allow-lists / Whitelists over Deny-lists.
 
-Requirements:
-- Hash passwords with bcrypt, Argon2, or scrypt — never MD5 or SHA1
-- Minimum password length of 12 characters
-- Implement account lockout after 5 failed attempts
-- Use multi-factor authentication (MFA) for sensitive operations
-- Never log passwords or store them in plaintext
+### 2.2 Context-Aware Output Encoding
+- Encode data immediately before rendering or sending to interpreters (HTML, SQL, Shell, XML, LDAP).
 
-```python
-# Good: bcrypt hashing
-import bcrypt
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+### 2.3 Cryptography & Secrets Management
+- Never hardcode secrets, API keys, passwords, or private certificates into source repositories.
+- Use memory-hard key derivation functions (Argon2id, Bcrypt) with appropriate work factors for credentials.
+- Use AES-256-GCM or ChaCha20-Poly1305 for authenticated symmetric encryption with unique nonces.
+- Use cryptographically secure random number generators (`secrets` in Python, `crypto.randomBytes` in Node.js, `SecureRandom` in Java).
 
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+### 2.4 Structured Error Handling & Safe Logging
+- Catch specific exception types. Never write bare `except:` or empty catch blocks.
+- Strip sensitive PII, credit cards, passwords, and tokens before logging.
+- Sanitize log messages against CRLF Injection (`\r`, `\n`).
 
-# Bad: MD5 hashing
-import hashlib
-def hash_password_bad(password: str) -> str:
-    return hashlib.md5(password.encode()).hexdigest()  # NEVER DO THIS
-```
-
----
-
-## 3. Secrets Management
-
-OWASP A07:2021 — Hardcoded Credentials
-
-Never hardcode secrets in source code:
-- API keys, tokens, database passwords
-- Encryption keys, JWT secrets
-- Cloud provider credentials
-
-```python
-# Good: environment variables
-import os
-from dotenv import load_dotenv
-load_dotenv()
-API_KEY = os.getenv("API_KEY")
-if not API_KEY:
-    raise RuntimeError("API_KEY environment variable not set")
-
-# Bad: hardcoded secret
-API_KEY = "sk-prod-abc123xyz789"  # CRITICAL VULNERABILITY
-```
+### 2.5 Software Supply Chain & Dependency Health
+- Generate and verify Software Bills of Materials (SBOMs - CycloneDX / SPDX).
+- Pin dependencies with exact cryptographic SHA-256 hashes.
+- Enforce automated Software Composition Analysis (SCA) scanning in CI/CD.
 
 ---
 
-## 4. Error Handling & Logging
+## 3. Comprehensive Code Review Security Checklist
 
-Never expose stack traces or sensitive information in error responses.
-
-```python
-# Good: safe error handling
-import logging
-logger = logging.getLogger(__name__)
-
-try:
-    result = db.query(user_id)
-except DatabaseError as e:
-    logger.error(f"Database error for user query: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Internal server error")
-
-# Bad: leaking internal details
-try:
-    result = db.query(user_id)
-except Exception as e:
-    return {"error": str(e), "traceback": traceback.format_exc()}  # NEVER DO THIS
-```
-
----
-
-## 5. Access Control
-
-OWASP A01:2021 — Broken Access Control
-
-Principles:
-- Deny access by default — require explicit permission grants
-- Enforce access control server-side on every request
-- Apply principle of least privilege
-- Log all access control failures
-
-```python
-# Good: decorator-based access control check
-from functools import wraps
-from flask import session, abort
-
-def require_role(role: str):
-    def decorator(f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
-            if session.get("user_role") != role:
-                abort(403)
-            return f(*args, **kwargs)
-        return wrapped
-    return decorator
-
-@app.route("/admin")
-@require_role("admin")
-def admin_panel():
-    return "Admin content"
-
-# Bad: trusting client-supplied role
-@app.route("/admin")
-def admin_panel_bad():
-    role = request.args.get("role")  # Attacker can set role=admin
-    if role == "admin":
-        return "Admin content"
-```
-
----
-
-## 6. Command Injection Prevention
-
-OWASP A03:2021 — Command Injection
-
-```python
-# Good: pass arguments as list, avoid shell=True
-import subprocess
-import shlex
-
-def ping_host(hostname: str) -> str:
-    safe_host = shlex.quote(hostname)
-    result = subprocess.run(
-        ["ping", "-c", "1", safe_host],
-        capture_output=True, text=True, timeout=5
-    )
-    return result.stdout
-
-# Bad: shell=True with user input
-def ping_host_bad(hostname: str) -> str:
-    result = subprocess.run(
-        f"ping -c 1 {hostname}", shell=True,  # CRITICAL: command injection
-        capture_output=True, text=True
-    )
-    return result.stdout
-```
-
----
-
-## 7. Cryptography
-
-OWASP A02:2021 — Cryptographic Failures
-
-Guidelines:
-- Use TLS 1.2 or higher for all data in transit
-- Use AES-256-GCM for symmetric encryption
-- Use RSA-2048 or higher / ECDSA P-256 for asymmetric operations
-- Never implement custom cryptography
-- Never use MD5 or SHA-1 for security purposes
-
-```python
-# Good: AES-GCM encryption with cryptography library
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-import os
-
-def encrypt(key: bytes, plaintext: bytes) -> bytes:
-    nonce = os.urandom(12)  # 96-bit nonce for GCM
-    aesgcm = AESGCM(key)
-    return nonce + aesgcm.encrypt(nonce, plaintext, None)
-
-# Bad: ECB mode (deterministic, does not hide patterns)
-from Crypto.Cipher import AES
-cipher = AES.new(key, AES.MODE_ECB)  # NEVER use ECB mode
-```
-
----
-
-## 8. Dependency Management
-
-OWASP A06:2021 — Vulnerable and Outdated Components
-
-- Regularly update all dependencies
-- Use tools like pip-audit, Dependabot, Snyk, or OWASP Dependency-Check
-- Pin dependency versions in production for reproducibility
-- Audit new dependencies before adding them
-- Remove unused dependencies
-
-```bash
-# Audit Python dependencies for known vulnerabilities
-pip install pip-audit
-pip-audit
-
-# Check for updates
-pip list --outdated
-```
+| Checkpoint | Verification Requirement | Priority |
+|------------|--------------------------|----------|
+| **Authentication** | Passwords hashed with Argon2id/Bcrypt; MFA supported; session IDs 128+ bit entropy. | Critical |
+| **Authorization** | Every endpoint verifies role AND object-level ownership (BOLA / IDOR defense). | Critical |
+| **SQL & Database** | 100% of database queries use parameterized prepared statements or ORM builders. | Critical |
+| **Subprocess / Shell**| No `os.system()`, `eval()`, `exec()`, or `shell=True`. Arguments passed as discrete token arrays. | Critical |
+| **Input Validation** | All inputs typed and validated with regex/schema before processing. | High |
+| **Data Protection** | Sensitive data encrypted at rest (AES-256-GCM); TLS 1.3 enforced in transit. | High |
+| **Session Cookies** | Cookies configured with `Secure; HttpOnly; SameSite=Strict`. | High |
+| **Error Handling** | No internal stack traces or environment variables exposed in HTTP error responses. | Medium |
+| **Code Architecture** | Functions have single responsibility (SRP); max 50 lines; low cyclomatic complexity. | Medium |

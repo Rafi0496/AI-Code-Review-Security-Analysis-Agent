@@ -1,0 +1,104 @@
+# OWASP A09:2021 – Security Logging and Monitoring Failures Master Reference
+
+## 1. Executive Summary & Overview
+Security Logging and Monitoring Failures ranks #9 in the OWASP Top 10 (2021). Without adequate logging and active monitoring, breach detection and incident response are impossible. The industry average time to detect a data breach (Mean Time to Identify - MTTI) exceeds 200 days, allowing adversaries to achieve persistent lateral movement, exfiltrate data, and destroy backups.
+
+Critical deficiencies include:
+- Auditable events (login failures, privilege changes, high-value transactions) not logged
+- Logs stored only locally on ephemeral servers without centralized SIEM replication
+- Failure to alert on high-severity security anomalies in real time
+- Log Injection / Log Forging (CWE-117) where unsanitized user inputs forge fake log lines
+- Logging sensitive data (passwords, payment card numbers, PII, session tokens, API keys)
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A09:2021 - Security Logging and Monitoring Failures
+- **CWE-778**: Insufficient Logging
+- **CWE-117**: Improper Output Handling for Logs ('Log Injection')
+- **CWE-532**: Insertion of Sensitive Information into Log File
+- **CWE-223**: Omission of Security-relevant Information
+- **CVSS v3.1 Score Range**: 5.3 - 7.5 (Medium to High)
+
+---
+
+## 3. Deep Technical Analysis & Vulnerability Patterns
+
+### 3.1 Log Injection / CRLF Log Forging (CWE-117)
+If untrusted user input is written to log files without removing newline characters (`\r`, `\n`), attackers can inject fake log records, misleading forensic investigators or exploiting log monitoring systems.
+
+#### Vulnerable Implementation (Python):
+```python
+# VULNERABLE: Direct logging of untrusted input without sanitization
+import logging
+
+def login_attempt_vulnerable(username: str, client_ip: str):
+    # If username is: "admin\n2026-08-17 12:00:00 [INFO] User admin logged in successfully from 127.0.0.1"
+    logging.warning(f"Failed login attempt for user: {username} from IP: {client_ip}")
+```
+
+#### Remediated Secure Implementation (Structured JSON Logging & Sanitization):
+```python
+# SECURE: Structured JSON logger with parameter sanitization and PII masking
+import logging
+import json
+import re
+
+class StructuredSecurityLogger:
+    def __init__(self, name: str):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+
+    @staticmethod
+    def _sanitize(text: str) -> str:
+        # Strip CRLF characters to defeat Log Injection
+        return re.sub(r'[\r\n]', '_', str(text))[:200]
+
+    def log_security_event(self, event_type: str, user_id: str, client_ip: str, status: str, extra: dict = None):
+        log_entry = {
+            "event_type": self._sanitize(event_type),
+            "user_id": self._sanitize(user_id),
+            "client_ip": self._sanitize(client_ip),
+            "status": self._sanitize(status),
+            "details": extra or {}
+        }
+        # Output as valid JSON line (safe from CRLF injection)
+        self.logger.info(json.dumps(log_entry))
+```
+
+---
+
+### 3.2 Sensitive Data Exposure in Logs (CWE-532)
+
+#### What to NEVER Log:
+- Passwords, passphrases, PINs
+- Payment card numbers (PAN), CVV/CVC codes (PCI-DSS violation)
+- Authorization headers, JWT tokens, session cookies
+- Personal Identifiable Information (SSN, national IDs, medical records)
+- Private cryptographic keys
+
+#### Automated PII Masking Filter:
+```python
+class SensitiveDataFilter(logging.Filter):
+    PATTERNS = [
+        (re.compile(r'(password|passwd|secret|api_key|token)=([^\s&]+)', re.I), r'\1=[REDACTED]'),
+        (re.compile(r'\b(?:\d[ -]*?){13,16}\b'), r'[CREDIT_CARD_REDACTED]')
+    ]
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = str(record.msg)
+        for pattern, replacement in self.PATTERNS:
+            msg = pattern.sub(replacement, msg)
+        record.msg = msg
+        return True
+```
+
+---
+
+## 4. Centralized SIEM & Alerting Architecture
+1. **Centralized Log Aggregation**: Ship logs in real-time over TLS to Elasticsearch, Datadog, AWS CloudWatch, or Splunk.
+2. **Immutable Append-Only Storage**: Store compliance logs in WORM (Write Once, Read Many) S3 buckets with Object Lock enabled.
+3. **Threshold Alerting**: Set automated alerts for:
+   - > 10 failed login attempts in 1 minute from single IP or user account
+   - Any access attempt to administrative or internal endpoints by non-admin roles
+   - Any SQL syntax error or unexpected database constraint violation

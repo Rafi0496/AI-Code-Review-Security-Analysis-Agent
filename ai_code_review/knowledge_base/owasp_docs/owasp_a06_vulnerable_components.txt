@@ -1,0 +1,99 @@
+# OWASP A06:2021 – Vulnerable and Outdated Components & Supply Chain Security Master Reference
+
+## 1. Executive Summary & Overview
+Vulnerable and Outdated Components ranks #6 in the OWASP Top 10 (2021). Modern software applications are assembled rather than written from scratch; open-source libraries, packages, and frameworks frequently constitute 70% to 90% of an application's codebase. 
+
+A single vulnerable third-party package (e.g. Log4Shell CVE-2021-44228, Spring4Shell CVE-2022-22965, or Equifax Apache Struts CVE-2017-5638) can expose the entire enterprise to Remote Code Execution (RCE), data exfiltration, or complete system takeover.
+
+Threat vectors include:
+- Unpatched known Common Vulnerabilities and Exposures (CVEs)
+- Transitive dependency vulnerabilities (dependencies of your dependencies)
+- Typosquatting attacks in package registries (PyPI, npm, Maven Central, RubyGems)
+- Malicious dependency hijacking and compromised maintainer accounts (Software Supply Chain Attacks)
+- Abandoned / unmaintained open-source libraries without security patches
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A06:2021 - Vulnerable and Outdated Components
+- **CWE-1104**: Use of Unmaintained Third Party Components
+- **CWE-1035**: 2020 Top 25 - Insecure Third Party Components
+- **CWE-937**: Using Components with Known Vulnerabilities
+- **CWE-829**: Inclusion of Functionality from Untrusted Control Sphere
+- **CVSS v3.1 Score Range**: 6.5 - 10.0 (Medium to Critical - Remote Code Execution)
+
+---
+
+## 3. Deep Technical Analysis & Supply Chain Defense
+
+### 3.1 Software Composition Analysis (SCA) & Continuous Auditing
+Every build pipeline must automatically scan all direct and transitive dependencies against vulnerability databases (NVD, OSV, GitHub Advisory Database).
+
+#### Recommended SCA Tooling per Ecosystem:
+- **Python**: `pip-audit`, `safety`, `poetry audit`
+- **JavaScript / Node.js**: `npm audit`, `yarn audit`, `pnpm audit`
+- **Java**: `OWASP Dependency-Check`, `Snyk`, `Trivy`
+- **Go**: `govulncheck`
+- **Rust**: `cargo-audit`
+
+#### CI/CD Pipeline Automation (GitHub Actions Example):
+```yaml
+name: Security & Dependency Vulnerability Gate
+on: [push, pull_request]
+
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Dependencies
+        run: pip install -r requirements.txt pip-audit
+      - name: Run pip-audit SCA
+        run: pip-audit --strict --desc on
+```
+
+---
+
+### 3.2 Software Bill of Materials (SBOM) Generation
+An SBOM is a formal machine-readable inventory of all components, libraries, modules, and licenses used in building software.
+
+- **Standards**: **CycloneDX** (`JSON`/`XML`) and **SPDX**.
+- **Use Cases**: Rapid zero-day impact assessment (e.g. querying within seconds whether any microservice in production imports a newly disclosed CVE), regulatory compliance (US Executive Order 14028, EU Cyber Resilience Act).
+
+#### Generating CycloneDX SBOM:
+```bash
+# Python
+cyclonedx-py requirements requirements.txt -o sbom.cyclonedx.json
+
+# Node.js
+npx @cyclonedx/cyclonedx-npm --output-file sbom.cyclonedx.json
+
+# Container Images
+syft packages alpine:latest -o cyclonedx-json=sbom.json
+```
+
+---
+
+### 3.3 Pinning Dependencies and Hash Verification
+Never use unbounded version ranges (e.g. `requests>=2.0.0` or `express: "*"`) in production. Unpinned dependencies can pull in breaking changes or compromised versions automatically.
+
+#### Secure Python `requirements.txt` with Cryptographic Hashes:
+```text
+urllib3==2.2.1 \
+    --hash=sha256:450b20ec9d0f476e6194b6e40461807d2319770185b461fb0285384c011d7389 \
+    --hash=sha256:a9c821903ebeed57baeb5b8f494bb80d20234aaa70f9240760dadac9a668b45d
+cryptography==42.0.5 \
+    --hash=sha256:56041a99532dd698b7e289bf443722b51ee247ca8c4cddfc1da4f3eef4ff482d
+```
+
+---
+
+## 4. Remediation & Patch SLA Policy
+1. **Critical Severity (CVSS 9.0 - 10.0)**: Remediate or patch within **24 hours**.
+2. **High Severity (CVSS 7.0 - 8.9)**: Remediate or patch within **7 days**.
+3. **Medium Severity (CVSS 4.0 - 6.9)**: Remediate within **30 days** (current sprint cycle).
+4. **Low Severity (CVSS 0.1 - 3.9)**: Address during routine maintenance.

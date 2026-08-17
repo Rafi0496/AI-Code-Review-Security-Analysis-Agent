@@ -1,0 +1,101 @@
+# Python Enterprise Secure Coding & AST Code Review Master Guide
+
+## 1. Executive Summary & Python Security Model
+Python is one of the most widely used languages for web backends (FastAPI, Django, Flask), AI/ML engineering, and automation. However, its dynamic nature, flexible typing, and rich runtime reflection expose unique security risks if defensive coding practices are not strictly enforced.
+
+---
+
+## 2. Core Python Vulnerabilities & Defenses
+
+### 2.1 Dangerous Dynamic Code Execution (`eval`, `exec`, `__import__`)
+- **Flaw**: Using `eval()` or `exec()` on user-supplied strings allows instant Remote Code Execution (RCE).
+- **Rule**: NEVER use `eval()` or `exec()`. Use `ast.literal_eval()` for safely parsing primitive Python literals (strings, numbers, tuples, lists, dicts, booleans).
+
+```python
+# VULNERABLE:
+# result = eval(user_input)
+
+# SECURE:
+import ast
+safe_data = ast.literal_eval(user_input) # Safe against code execution
+```
+
+---
+
+### 2.2 Safe File Operations & Path Traversal (CWE-22)
+- **Flaw**: Using raw string concatenation `os.path.join(base, filename)` allows `../` traversal outside the target directory.
+- **Rule**: Use `pathlib.Path.resolve()` and `target.is_relative_to(base)`.
+
+```python
+from pathlib import Path
+
+def read_user_file_secure(base_dir_path: str, user_filename: str) -> str:
+    base = Path(base_dir_path).resolve()
+    target = (base / Path(user_filename).name).resolve()
+    
+    if not target.is_relative_to(base) or not target.is_file():
+        raise PermissionError("Access denied: Path traversal detected")
+        
+    return target.read_text(encoding="utf-8")
+```
+
+---
+
+### 2.3 Safe Database Access with SQLAlchemy & Asyncpg
+- **Flaw**: Concatenating parameters into raw SQL strings.
+- **Rule**: Always use bound parameters or ORM query builders.
+
+```python
+# SECURE (SQLAlchemy 2.0+):
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+async def get_active_users(session: AsyncSession, organization_id: int):
+    stmt = select(User).where(User.organization_id == organization_id, User.is_active == True)
+    result = await session.execute(stmt)
+    return result.scalars().all()
+```
+
+---
+
+### 2.4 Secure Randomness & Cryptography
+- **Flaw**: Using `import random` for security-sensitive tokens, passwords, or session IDs. Standard `random` uses the Mersenne Twister PRNG which is fully predictable after 624 outputs.
+- **Rule**: Always use the `secrets` module or `os.urandom()` for cryptographic tokens.
+
+```python
+import secrets
+
+# Generate cryptographically secure URL-safe token (256-bit entropy)
+secure_token = secrets.token_urlsafe(32)
+
+# Secure random integer selection
+secure_pin = secrets.randbelow(1000000) # 0 to 999,999
+```
+
+---
+
+### 2.5 Safe Exception Handling & Logging
+- **Flaw**: Bare `except:` catches `KeyboardInterrupt` and `SystemExit`, masking critical process signals and hiding stack traces.
+- **Rule**: Always catch specific exception types or `except Exception as e:` and use `logger.error(..., exc_info=True)`.
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+try:
+    process_payment(transaction_id)
+except PaymentGatewayError as e:
+    logger.warning(f"Payment gateway rejected transaction {transaction_id}: {e}")
+    notify_user_failure()
+except Exception as e:
+    logger.error(f"Critical unexpected failure in transaction {transaction_id}", exc_info=True)
+    raise
+```
+
+---
+
+## 3. Static Analysis & Linting Tooling for Python
+1. **Bandit**: Security-oriented static analyzer (`bandit -r src/ -lll`).
+2. **Ruff**: High-performance linter enforcing PEP-8, security (flake8-bandit), and clean code standards.
+3. **Mypy**: Strict static type checker ensuring type safety (`mypy --strict src/`).
+4. **Safety / pip-audit**: Software composition analysis for known dependency vulnerabilities.

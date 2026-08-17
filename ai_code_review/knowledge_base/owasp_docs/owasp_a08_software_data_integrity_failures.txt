@@ -1,0 +1,101 @@
+# OWASP A08:2021 – Software and Data Integrity Failures & Insecure Deserialization Master Reference
+
+## 1. Executive Summary & Overview
+Software and Data Integrity Failures ranks #8 in the OWASP Top 10 (2021). This category focuses on code and infrastructure that does not protect against integrity violations, leading to arbitrary code execution, unauthorized firmware/software modification, or state corruption.
+
+Key vulnerabilities include:
+- **Insecure Deserialization (CWE-502)**: Parsing untrusted serialized object streams (Python `pickle`, Java `ObjectInputStream`, PHP `unserialize`, YAML `yaml.load()`)
+- Unsigned or unverified software updates, plugins, and dependencies
+- Insecure CI/CD deployment pipelines (unauthenticated build runners, tampered artifact repositories)
+- Auto-update mechanisms without cryptographic signature verification (PGP / GPG / Minisign)
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A08:2021 - Software and Data Integrity Failures
+- **CWE-502**: Deserialization of Untrusted Data
+- **CWE-565**: Reliance on Cookies without Validation and Integrity Checking
+- **CWE-494**: Download of Code Without Integrity Check
+- **CWE-345**: Insufficient Verification of Data Authenticity
+- **CVSS v3.1 Score Range**: 8.0 - 9.8 (High to Critical - Remote Code Execution)
+
+---
+
+## 3. Deep Technical Analysis & Vulnerability Patterns
+
+### 3.1 Insecure Python Object Deserialization (`pickle` / `yaml`) (CWE-502)
+Python's `pickle` module allows arbitrary code execution during deserialization via the `__reduce__` magic method. Never unpickle data received from untrusted sources.
+
+#### Vulnerable Implementation (Python `pickle` / `yaml`):
+```python
+# VULNERABLE: Unpickling untrusted data directly allows arbitrary RCE
+import pickle
+import base64
+
+def process_user_session_vulnerable(cookie_data: str):
+    # Attacker crafts a payload with __reduce__ invoking os.system('nc -e /bin/sh ...')
+    raw_data = base64.b64decode(cookie_data)
+    session = pickle.loads(raw_data) # REMOTE CODE EXECUTION
+    return session
+```
+
+#### Remediated Secure Implementation (JSON + Pydantic Schema Validation + HMAC):
+```python
+# SECURE: Safe JSON serialization with strict cryptographic HMAC signature validation
+import json
+import hmac
+import hashlib
+import os
+from pydantic import BaseModel, Field
+
+SECRET_KEY = os.environ["SESSION_HMAC_SECRET"].encode('utf-8')
+
+class UserSessionSchema(BaseModel):
+    user_id: int = Field(..., gt=0)
+    username: str = Field(..., max_length=50)
+    is_authenticated: bool
+
+def serialize_session(session: UserSessionSchema) -> str:
+    payload_json = session.model_dump_json()
+    signature = hmac.new(SECRET_KEY, payload_json.encode('utf-8'), hashlib.sha256).hexdigest()
+    return f"{payload_json}.{signature}"
+
+def deserialize_session(signed_payload: str) -> UserSessionSchema:
+    try:
+        payload_json, provided_sig = signed_payload.rsplit('.', 1)
+        expected_sig = hmac.new(SECRET_KEY, payload_json.encode('utf-8'), hashlib.sha256).hexdigest()
+        
+        # Constant-time comparison to prevent timing attacks
+        if not hmac.compare_digest(provided_sig, expected_sig):
+            raise ValueError("Invalid session signature: Data tampering detected")
+            
+        data = json.loads(payload_json) # JSON parser is completely safe from RCE
+        return UserSessionSchema(**data)
+    except Exception as e:
+        raise ValueError(f"Session validation failure: {e}")
+```
+
+---
+
+### 3.2 Safe YAML Parsing (CWE-502)
+
+#### Vulnerable Implementation:
+```python
+import yaml
+# VULNERABLE: yaml.load with default Loader instantiates arbitrary Python classes
+config = yaml.load(user_supplied_yaml, Loader=yaml.Loader)
+```
+
+#### Remediated Secure Implementation:
+```python
+import yaml
+# SECURE: yaml.safe_load strictly parses standard YAML primitives (strings, lists, dicts)
+config = yaml.safe_load(user_supplied_yaml)
+```
+
+---
+
+## 4. CI/CD Pipeline & Supply Chain Integrity
+1. **Signed Git Commits**: Enforce GPG/SSH commit signatures for all team members.
+2. **Reproducible Builds**: Guarantee that identical source commits produce identical binary digests.
+3. **Artifact Signing**: Sign container images and binaries using **Cosign** / **Sigstore** and verify signatures in Kubernetes admission controllers before pod scheduling.

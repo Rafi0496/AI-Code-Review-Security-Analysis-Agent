@@ -1,0 +1,114 @@
+# OWASP A07:2021 – Identification and Authentication Failures Master Reference
+
+## 1. Executive Summary & Overview
+Identification and Authentication Failures (formerly "Broken Authentication") ranks #7 in the OWASP Top 10 (2021). Confirming the user's identity, authentication state, and session integrity is critical to protecting applications against unauthorized access and account takeovers (ATO).
+
+Common flaws include:
+- Permitting automated brute-force or credential stuffing attacks
+- Allowing weak or known compromised passwords (e.g. `Password123`, passwords from HaveIBeenPwned breaches)
+- Insecure password recovery and reset mechanisms
+- Exposing session identifiers in URLs or failing to invalidate session tokens upon logout
+- Insecure JSON Web Token (JWT) handling (e.g. accepting `none` algorithm, failing to verify expiration, weak symmetric secrets)
+- Missing Multi-Factor Authentication (MFA) on sensitive administrative workflows
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A07:2021 - Identification and Authentication Failures
+- **CWE-287**: Improper Authentication
+- **CWE-384**: Session Fixation
+- **CWE-307**: Improper Restriction of Excessive Authentication Attempts
+- **CWE-521**: Weak Password Requirements
+- **CWE-613**: Insufficient Session Expiration
+- **CWE-352**: Cross-Site Request Forgery (Session Tampering)
+- **CWE-798**: Use of Hard-coded Credentials
+- **CVSS v3.1 Score Range**: 7.5 - 9.8 (High to Critical - Account Takeover)
+
+---
+
+## 3. Deep Technical Analysis & Vulnerability Patterns
+
+### 3.1 JSON Web Token (JWT) Security Anti-Patterns
+
+#### Vulnerable Implementation (Python / PyJWT):
+```python
+# VULNERABLE: Decoding JWT without algorithm verification or ignoring signature verification
+import jwt
+
+def get_user_from_token_vulnerable(token: str):
+    # Flaw: verify_signature=False allows attackers to forge any payload
+    # Or allowing 'none' algorithm bypass
+    decoded = jwt.decode(token, options={"verify_signature": False})
+    return decoded["sub"]
+```
+
+#### Remediated Secure Implementation (PyJWT):
+```python
+# SECURE: Strict signature verification, algorithm whitelist, expiration & audience checks
+import jwt
+import os
+from datetime import datetime, timezone
+
+JWT_SECRET_KEY = os.environ["JWT_SECRET_KEY"]
+JWT_ALGORITHM = "HS256"
+
+def decode_access_token_secure(token: str) -> dict:
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SECRET_KEY,
+            algorithms=[JWT_ALGORITHM], # Explicitly restrict algorithm list
+            options={
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_nbf": True,
+                "require": ["exp", "iat", "sub"]
+            },
+            audience="api.enterprise.com",
+            issuer="auth.enterprise.com"
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired. Please re-authenticate.")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid authentication token.")
+```
+
+---
+
+### 3.2 Brute-Force & Credential Stuffing Mitigation
+
+#### Rate Limiting & Account Protection Architecture:
+1. **Sliding Window IP Rate Limiting**: Max 5 attempts per minute per IP address.
+2. **Account-Level Lockout / Slowdown**: After 5 failed attempts for a specific username, require captcha or enforce exponential backoff (1s, 2s, 4s, 8s, 16s...).
+3. **Breached Password Checking**: Check incoming passwords against HaveIBeenPwned k-Anonymity API to prevent users from selecting known compromised passwords.
+
+#### Python Implementation with Redis Sliding Window:
+```python
+import redis
+import time
+
+r = redis.Redis(host='localhost', port=6379, db=0)
+
+def is_rate_limited(key: str, limit: int = 5, window_seconds: int = 300) -> bool:
+    now = time.time()
+    pipe = r.pipeline()
+    # Remove timestamps older than current window
+    pipe.zremrangebyscore(key, 0, now - window_seconds)
+    # Count attempts in current window
+    pipe.zcard(key)
+    # Record current attempt
+    pipe.zadd(key, {str(now): now})
+    # Set expiration on the key
+    pipe.expire(key, window_seconds)
+    _, count, _, _ = pipe.execute()
+    
+    return count >= limit
+```
+
+---
+
+## 4. Authentication Standards & Best Practices
+- **Multi-Factor Authentication (MFA)**: Support TOTP (RFC 6238 / Google Authenticator) and WebAuthn / FIDO2 security keys (phishing-resistant).
+- **Session ID Entropy**: Session IDs must have at least 128 bits of cryptographically secure entropy (`secrets.token_urlsafe(32)`).
+- **Session Lifecycle**: Re-generate session IDs upon successful login (prevents Session Fixation CWE-384). Set idle timeout (e.g. 15 minutes) and absolute timeout (e.g. 12 hours).

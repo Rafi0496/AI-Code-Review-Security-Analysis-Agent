@@ -1,0 +1,171 @@
+# OWASP A03:2021 – Injection Vulnerabilities & Safe Input Handling Master Reference
+
+## 1. Executive Summary & Overview
+Injection ranks #3 in the OWASP Top 10 (2021) and has historically been one of the most destructive security vulnerabilities. Injection occurs when untrusted user data is sent to an interpreter as part of a command or query. The attacker's hostile data tricks the interpreter into executing unintended commands or accessing data without authorization.
+
+Major forms of injection include:
+- **SQL Injection (SQLi)**: Manipulating relational database queries
+- **OS Command Injection**: Executing arbitrary operating system shell commands
+- **Server-Side Template Injection (SSTI)**: Executing template code on the server (Jinja2, Twig, Velocity)
+- **NoSQL Injection**: Manipulating non-relational document database queries (MongoDB `$where`, `$gt`)
+- **LDAP Injection**: Manipulating directory service queries
+- **Cross-Site Scripting (XSS)**: Client-side interpreter injection (HTML / JavaScript)
+- **Log Injection / CRLF Injection**: Injecting fake log entries to mask malicious activity
+
+---
+
+## 2. Formal Classifications & CWE Mappings
+- **OWASP Top 10 Category**: A03:2021 - Injection
+- **CWE-89**: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')
+- **CWE-78**: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')
+- **CWE-77**: Improper Neutralization of Special Elements used in a Command ('Command Injection')
+- **CWE-94**: Improper Control of Generation of Code ('Code Injection' / `eval()`)
+- **CWE-90**: Improper Neutralization of Special Elements used in an LDAP Query ('LDAP Injection')
+- **CWE-643**: Improper Neutralization of Data within XPath Expressions ('XPath Injection')
+- **CWE-117**: Improper Output Handling for Logs ('Log Injection')
+- **CWE-917**: Improper Neutralization of Special Elements used in Expression Language Statement
+- **CVSS v3.1 Score Range**: 8.5 - 10.0 (High to Critical - Remote Code Execution / Full Data Breach)
+
+---
+
+## 3. Deep Technical Analysis & Vulnerability Patterns
+
+### 3.1 SQL Injection (CWE-89) & Parameterized Queries
+
+#### Vulnerable Implementation (Python):
+```python
+# VULNERABLE: Direct f-string interpolation into SQL statement
+def authenticate_user_vulnerable(cursor, username, password):
+    # Attacker payload: admin' --
+    query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
+    cursor.execute(query) # Executes: SELECT * FROM users WHERE username = 'admin' --' AND password = '...'
+    return cursor.fetchone()
+```
+
+#### Remediated Secure Implementation (Python DB-API / Psycopg2 / SQLite):
+```python
+# SECURE: Database parameterized query (Prepared Statement)
+def authenticate_user_secure(cursor, username, password):
+    query = "SELECT id, username, password_hash, role FROM users WHERE username = %s"
+    cursor.execute(query, (username,)) # Parameters sent separately from SQL AST
+    user = cursor.fetchone()
+    if user and verify_password(password, user["password_hash"]):
+        return user
+    return None
+```
+
+#### Remediated Secure Implementation (SQLAlchemy ORM):
+```python
+# SECURE: Safe ORM query construction with bound parameters
+from sqlalchemy.orm import Session
+
+def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    # SQLAlchemy automatically parameterizes all filter statements
+    return db.query(User).filter(User.email == email).first()
+```
+
+---
+
+### 3.2 OS Command Injection (CWE-78) & Safe Subprocess Execution
+
+#### Vulnerable Implementation (Python / `os.system` / `shell=True`):
+```python
+# VULNERABLE: Invoking system shell with untrusted concatenated parameter
+import os
+
+def generate_pdf_vulnerable(filename: str):
+    # Attacker sends filename: "report.txt; rm -rf /"
+    os.system(f"wkhtmltopdf /data/{filename} /output/{filename}.pdf")
+```
+
+#### Remediated Secure Implementation (Python / `subprocess.run`):
+```python
+# SECURE: Structured argument list with shell=False and strict path validation
+import subprocess
+import shlex
+from pathlib import Path
+
+def generate_pdf_secure(filename: str):
+    base_dir = Path("/data").resolve()
+    safe_name = Path(filename).name
+    input_path = (base_dir / safe_name).resolve()
+    
+    if not input_path.is_relative_to(base_dir) or not input_path.is_file():
+        raise ValueError("Invalid target filename")
+        
+    output_path = Path("/output") / f"{safe_name}.pdf"
+    
+    # Arguments passed as an explicit array of tokens; NO shell spawned
+    command = ["wkhtmltopdf", str(input_path), str(output_path)]
+    result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=30)
+    return str(output_path)
+```
+
+---
+
+### 3.3 Server-Side Template Injection (SSTI) (CWE-94 / CWE-1336)
+
+#### Vulnerable Implementation (Python / Jinja2):
+```python
+# VULNERABLE: Direct string formatting into Jinja template before compilation
+from jinja2 import Environment
+
+def render_greeting_vulnerable(user_name):
+    # Attacker payload: {{ config.items() }} or {{ self.__init__.__globals__.__builtins__.__import__('os').popen('id').read() }}
+    template_str = f"Hello, {user_name}! Welcome to our platform."
+    return Environment().from_string(template_str).render()
+```
+
+#### Remediated Secure Implementation (Jinja2):
+```python
+# SECURE: Static template with untrusted input passed strictly as template context
+from jinja2 import Environment, select_autoescape
+
+env = Environment(autoescape=select_autoescape(['html', 'xml']))
+
+def render_greeting_secure(user_name: str):
+    template = env.from_string("Hello, {{ name }}! Welcome to our platform.")
+    return template.render(name=user_name)
+```
+
+---
+
+### 3.4 NoSQL Injection (MongoDB / PyMongo)
+
+#### Vulnerable Implementation:
+```python
+# VULNERABLE: Passing raw request JSON directly into Mongo query
+@app.post("/login")
+def login(creds: dict = Body(...)):
+    # Attacker sends JSON: {"username": "admin", "password": {"$gt": ""}}
+    user = db.users.find_one({"username": creds["username"], "password": creds["password"]})
+    if user:
+        return {"status": "authenticated"}
+```
+
+#### Remediated Secure Implementation:
+```python
+# SECURE: Strict schema validation via Pydantic + sanitization
+from pydantic import BaseModel, Field
+
+class LoginSchema(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=8, max_length=128)
+
+@app.post("/login")
+def login(creds: LoginSchema):
+    # Values guaranteed to be primitive strings, preventing MongoDB query operator injection
+    user = db.users.find_one({"username": creds.username})
+    if user and verify_password(creds.password, user["password_hash"]):
+        return {"status": "authenticated"}
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+```
+
+---
+
+## 4. Comprehensive Injection Prevention Defense-in-Depth Checklist
+1. **Primary Defense**: Always use Parameterized Queries, Object-Relational Mappers (ORM), and Prepared Statements.
+2. **Subprocess Rules**: Never invoke `os.system()`, `eval()`, `exec()`, or `subprocess.Popen(..., shell=True)`. Pass discrete token lists with `subprocess.run()`.
+3. **Input Validation**: Validate all incoming parameters against strict Whitelists / Allow-lists (data types, regex patterns, enum sets).
+4. **Context-Aware Output Encoding**: Encode all dynamic content before embedding into HTML, XML, JSON, or Shell contexts.
+5. **Least Privilege Database Accounts**: Configure application database credentials with minimal table permissions (e.g. read/write only, no DDL/DROP table privileges).

@@ -1,0 +1,111 @@
+# CWE Top 25 Most Dangerous Software Weaknesses Comprehensive Encyclopedia
+
+## 1. Executive Summary & Overview
+The Common Weakness Enumeration (CWE) Top 25 is a curated list of the most frequent, dangerous, and impactful software security weaknesses identified across the global software industry (compiled by MITRE, CISA, and the Homeland Security Systems Engineering and Development Institute).
+
+---
+
+## 2. Complete CWE Top 25 Breakdown & Remediations
+
+### 1. CWE-787: Out-of-bounds Write
+- **Impact**: Arbitrary code execution, memory corruption, crash.
+- **Languages**: C, C++, Rust (unsafe blocks).
+- **Remediation**: Use bounds checking, safe memory abstractions (`std::vector`, `std::string`), or memory-safe languages (Rust, Go, Python).
+
+### 2. CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')
+- **Impact**: Session hijacking, credential theft, CSRF, DOM manipulation.
+- **Languages**: JavaScript, TypeScript, HTML, Python, Java, PHP.
+- **Remediation**: Context-aware output encoding, DOMPurify, Content Security Policy (CSP).
+
+### 3. CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')
+- **Impact**: Unauthorized data extraction, modification, administrative bypass.
+- **Remediation**: Parameterized queries, prepared statements, ORMs.
+
+### 4. CWE-416: Use After Free
+- **Impact**: Arbitrary code execution, heap exploitation.
+- **Languages**: C, C++.
+- **Remediation**: Zero out pointers after free, use smart pointers (`std::unique_ptr`, `std::shared_ptr`), RAII.
+
+### 5. CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')
+- **Impact**: Full server takeover, remote code execution.
+- **Remediation**: Avoid shell invocations; pass arguments as explicit token arrays (`subprocess.run(["cmd", arg])`).
+
+### 6. CWE-20: Improper Input Validation
+- **Impact**: Logic bypass, unexpected program flow, downstream injection.
+- **Remediation**: Whitelist validation, strict regex patterns, Pydantic schemas.
+
+### 7. CWE-125: Out-of-bounds Read
+- **Impact**: Sensitive memory disclosure (e.g. Heartbleed CVE-2014-0160).
+- **Remediation**: Safe buffer wrappers, memory safety checks.
+
+### 8. CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')
+- **Impact**: Unauthorized file read/write (`/etc/passwd`, configuration files).
+- **Remediation**: Canonical path verification (`Path.resolve().is_relative_to(base)`).
+
+### 9. CWE-352: Cross-Site Request Forgery (CSRF)
+- **Impact**: Unauthorized state-changing actions performed on behalf of authenticated user.
+- **Remediation**: Anti-CSRF synchronizer tokens, `SameSite=Strict` cookies.
+
+### 10. CWE-434: Unrestricted Upload of File with Dangerous Type
+- **Impact**: Web shell execution, remote code execution.
+- **Remediation**: Validate file extension against strict whitelist, check MIME type with `magic` bytes, store outside web root, re-encode image files.
+
+### 11. CWE-862: Missing Authorization
+- **Impact**: Horizontal and vertical privilege escalation.
+- **Remediation**: Enforce server-side role and ownership validation on all routes.
+
+### 12. CWE-476: NULL Pointer Dereference
+- **Impact**: Application crash, denial of service.
+- **Remediation**: Null safety checks, `Optional<T>` in Java, Rust `Option<T>`.
+
+### 13. CWE-287: Improper Authentication
+- **Impact**: Account takeover, identity spoofing.
+- **Remediation**: Multi-factor authentication, strong salted hashing (Argon2id/Bcrypt).
+
+### 14. CWE-190: Integer Overflow or Wraparound
+- **Impact**: Buffer overflow, logic failure in financial calculations.
+- **Remediation**: Safe integer arithmetic libraries, checked arithmetic.
+
+### 15. CWE-502: Deserialization of Untrusted Data
+- **Impact**: Remote code execution.
+- **Remediation**: Avoid native serialization (pickle/Java); use JSON or Protocol Buffers.
+
+### 16. CWE-77: Command Injection
+- **Impact**: Unauthorized command execution.
+- **Remediation**: Avoid command interpreters; use structured system APIs.
+
+### 17. CWE-119: Improper Restriction of Operations within the Bounds of a Memory Buffer
+- **Impact**: Buffer overflow, code execution.
+- **Remediation**: Use memory-safe libraries and bounds-checked operations.
+
+### 18. CWE-798: Use of Hard-coded Credentials
+- **Impact**: Credential leakage via version control or decompilation.
+- **Remediation**: Dynamic secret management (HashiCorp Vault, AWS Secrets Manager, `.env`).
+
+### 19. CWE-918: Server-Side Request Forgery (SSRF)
+- **Impact**: Internal network scanning, cloud IAM metadata exfiltration.
+- **Remediation**: Strict URL validation, DNS resolution check, private IP blocking.
+
+### 20. CWE-306: Missing Authentication for Critical Function
+- **Impact**: Unauthorized administrative actions.
+- **Remediation**: Require authentication middleware on all business and administrative routes.
+
+### 21. CWE-362: Concurrent Execution using Shared Resource with Improper Synchronization ('Race Condition')
+- **Impact**: Double-spending, state corruption.
+- **Remediation**: Database row-level locking (`SELECT ... FOR UPDATE`), distributed mutexes (Redis Redlock).
+
+### 22. CWE-269: Improper Privilege Management
+- **Impact**: Elevation of privilege.
+- **Remediation**: Principle of least privilege, strict RBAC/ABAC models.
+
+### 23. CWE-94: Improper Control of Generation of Code ('Code Injection')
+- **Impact**: Remote code execution via `eval()` or template engines.
+- **Remediation**: Disable dynamic evaluation; separate code from data.
+
+### 24. CWE-863: Incorrect Authorization
+- **Impact**: Inconsistent permission enforcement.
+- **Remediation**: Centralized policy decision points (Open Policy Agent - OPA).
+
+### 25. CWE-276: Incorrect Default Permissions
+- **Impact**: Overly permissive file or database permissions.
+- **Remediation**: Apply secure default file permissions (`chmod 600`), deny by default.
