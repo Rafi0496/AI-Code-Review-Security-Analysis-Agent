@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import ReactMarkdown from 'react-markdown'
 import Prism from 'prismjs'
 import 'prismjs/components/prism-python'
@@ -364,55 +364,55 @@ function downloadPDF(prData, fullFixedCode, submittedCode, language = 'python', 
     const afterSnippet = f.after_code || (f.corrected_code ? f.corrected_code : null)
 
     return `
-    <div style="margin-bottom: 24px; border: 1.5px solid #000; padding: 18px; background: #fff; page-break-inside: avoid; font-family: 'Times New Roman', Times, serif;">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #000; padding-bottom: 10px; margin-bottom: 12px;">
-        <div style="font-size: 15px; font-weight: bold; text-transform: uppercase; color: #000;">
+    <div class="defect-card-item" style="margin-bottom: 28px; border: 1.5px solid #000; padding: 22px; background: #fff; page-break-inside: avoid; font-family: 'Times New Roman', Times, serif;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #000; padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="font-size: 15.5px; font-weight: bold; text-transform: uppercase; color: #000;">
           ISSUE #${i + 1}: ${issueType}
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
-          <span style="border: 1px solid #000; background: #000; color: #fff; font-weight: bold; font-size: 11px; padding: 3px 8px; text-transform: uppercase; letter-spacing: 0.05em;">${sev}</span>
-          <span style="border: 1px solid #000; background: #fff; color: #000; font-weight: bold; font-size: 11px; padding: 3px 8px;">LINE ${lineNum}</span>
+          <span style="border: 1.5px solid #000; background: #000; color: #fff; font-weight: bold; font-size: 11px; padding: 4px 10px; text-transform: uppercase; letter-spacing: 0.05em;">${sev}</span>
+          <span style="border: 1.5px solid #000; background: #fff; color: #000; font-weight: bold; font-size: 11px; padding: 4px 10px;">LINE ${lineNum}</span>
         </div>
       </div>
       
-      <div style="margin-bottom: 10px;">
-        <div style="font-size: 12.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 3px;">1. Defect Description:</div>
-        <div style="font-size: 14px; color: #000; line-height: 1.55;">${desc}</div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">1. Defect Description:</div>
+        <div style="font-size: 14.5px; color: #111; line-height: 1.7;">${desc}</div>
       </div>
 
-      <div style="margin-bottom: 10px;">
-        <div style="font-size: 12.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 3px;">2. Root Cause Analysis:</div>
-        <div style="font-size: 14px; color: #000; line-height: 1.55;">${rootCause}</div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">2. Root Cause Analysis:</div>
+        <div style="font-size: 14.5px; color: #111; line-height: 1.7;">${rootCause}</div>
       </div>
 
-      <div style="margin-bottom: 10px;">
-        <div style="font-size: 12.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 3px;">3. Security & Operational Impact:</div>
-        <div style="font-size: 14px; color: #000; line-height: 1.55;">${threatImpact}</div>
+      <div style="margin-bottom: 12px;">
+        <div style="font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">3. Security & Operational Impact:</div>
+        <div style="font-size: 14.5px; color: #111; line-height: 1.7;">${threatImpact}</div>
       </div>
 
-      <div style="border: 1px solid #000; background: #f8f8f8; padding: 12px; margin-top: 12px;">
-        <div style="font-size: 12.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 4px;">4. Actionable Remediation & Fix Instructions:</div>
-        <div style="font-size: 14px; color: #000; line-height: 1.55;">${detailedAction}</div>
+      <div style="border: 1.5px solid #000; background: #f9f9f9; padding: 14px 16px; margin-top: 14px;">
+        <div style="font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; color: #000; margin-bottom: 5px;">4. Actionable Remediation & Fix Instructions:</div>
+        <div style="font-size: 14.5px; color: #111; line-height: 1.7;">${detailedAction}</div>
       </div>
 
       ${beforeSnippet || afterSnippet ? `
-      <div style="margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
         ${beforeSnippet ? `
-        <div style="border: 1px solid #000; background: #fff;">
-          <div style="background: #000; color: #fff; padding: 4px 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; font-family: 'Times New Roman', Times, serif;">VULNERABLE CODE (BEFORE)</div>
-          <pre style="margin: 0; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11.5px; color: #000; white-space: pre-wrap; line-height: 1.5;">${beforeSnippet}</pre>
+        <div style="border: 1.5px solid #000; background: #fff;">
+          <div style="background: #000; color: #fff; padding: 5px 10px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; font-family: 'Times New Roman', Times, serif;">VULNERABLE CODE (BEFORE)</div>
+          <pre style="margin: 0; padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; color: #000; white-space: pre-wrap; line-height: 1.55;">${beforeSnippet}</pre>
         </div>` : ''}
         ${afterSnippet ? `
-        <div style="border: 1px solid #000; background: #fff;">
-          <div style="background: #000; color: #fff; padding: 4px 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; font-family: 'Times New Roman', Times, serif;">SECURE REMEDIATION (AFTER)</div>
-          <pre style="margin: 0; padding: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11.5px; color: #000; white-space: pre-wrap; line-height: 1.5;">${afterSnippet}</pre>
+        <div style="border: 1.5px solid #000; background: #fff;">
+          <div style="background: #000; color: #fff; padding: 5px 10px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; font-family: 'Times New Roman', Times, serif;">SECURE REMEDIATION (AFTER)</div>
+          <pre style="margin: 0; padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; color: #000; white-space: pre-wrap; line-height: 1.55;">${afterSnippet}</pre>
         </div>` : ''}
       </div>` : ''}
     </div>`
   }).join('')
 
   const fixedCodeLines = effectiveFixedCode.split('\n').map((line, idx) => {
-    return `<tr><td style="width: 45px; text-align: right; color: #444; padding: 2px 8px; border: none; border-right: 1px solid #000; user-select: none; background: #f0f0f0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px;">${idx + 1}</td><td style="padding: 2px 8px; border: none; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; white-space: pre; color: #000;">${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || ' '}</td></tr>`
+    return `<tr><td style="width: 50px; text-align: right; color: #444; padding: 3px 10px; border: none; border-right: 1.5px solid #000; user-select: none; background: #f0f0f0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px;">${idx + 1}</td><td style="padding: 3px 10px; border: none; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12.5px; white-space: pre; color: #000;">${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || ' '}</td></tr>`
   }).join('')
 
   const rawFixedCodeEscaped = JSON.stringify(effectiveFixedCode)
@@ -424,16 +424,16 @@ function downloadPDF(prData, fullFixedCode, submittedCode, language = 'python', 
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: "Times New Roman", Times, serif;
-    color: #000;
-    padding: 40px;
-    line-height: 1.6;
-    font-size: 14px;
+    color: #111;
+    padding: 48px;
+    line-height: 1.75;
+    font-size: 14.5px;
     background: #fff;
   }
   .report-header {
-    border-bottom: 2px solid #000;
-    padding-bottom: 16px;
-    margin-bottom: 24px;
+    border-bottom: 2.5px solid #000;
+    padding-bottom: 20px;
+    margin-bottom: 32px;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -444,59 +444,62 @@ function downloadPDF(prData, fullFixedCode, submittedCode, language = 'python', 
   }
   h1.main-heading {
     font-family: "Times New Roman", Times, serif;
-    font-size: 24px;
+    font-size: 26px;
     font-weight: bold;
     text-align: center;
     color: #000;
-    margin: 0 auto 8px auto;
+    margin: 0 auto 10px auto;
     letter-spacing: 0.02em;
   }
   .meta {
     font-family: "Times New Roman", Times, serif;
-    font-size: 13px;
-    color: #222;
-    margin-top: 6px;
+    font-size: 13.5px;
+    color: #333;
+    margin-top: 8px;
     text-align: center;
+    line-height: 1.6;
   }
   .action-bar { display: flex; gap: 8px; }
   .btn-action {
     font-family: "Times New Roman", Times, serif;
     background: #000;
     color: #fff;
-    border: 1px solid #000;
-    padding: 7px 16px;
-    font-size: 12px;
+    border: 1.5px solid #000;
+    padding: 8px 18px;
+    font-size: 12.5px;
     font-weight: bold;
     cursor: pointer;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
   }
   .btn-action:hover { background: #333; }
   h2 {
     font-family: "Times New Roman", Times, serif;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin: 28px 0 12px;
+    margin: 36px 0 16px;
     color: #000;
     border-bottom: 1.5px solid #000;
-    padding-bottom: 5px;
+    padding-bottom: 6px;
   }
-  .score-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0 24px; }
-  .score-card { border: 1.5px solid #000; padding: 14px; text-align: center; background: #fff; }
-  .score-val { font-family: "Times New Roman", Times, serif; font-size: 26px; font-weight: bold; color: #000; display: block; }
-  .score-lbl { font-family: "Times New Roman", Times, serif; font-size: 11.5px; color: #222; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold; margin-top: 4px; display: block; }
-  table.stats-table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-family: "Times New Roman", Times, serif; }
-  table.stats-table th, table.stats-table td { text-align: left; padding: 9px 12px; border: 1px solid #000; font-size: 13.5px; color: #000; }
-  table.stats-table th { background: #f0f0f0; font-weight: bold; text-transform: uppercase; letter-spacing: 0.03em; }
-  .code-container { border: 1.5px solid #000; background: #fff; margin-top: 12px; }
+  .score-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 20px 0 32px; }
+  .score-card { border: 1.5px solid #000; padding: 18px 14px; text-align: center; background: #fff; }
+  .score-val { font-family: "Times New Roman", Times, serif; font-size: 28px; font-weight: bold; color: #000; display: block; }
+  .score-lbl { font-family: "Times New Roman", Times, serif; font-size: 12px; color: #333; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold; margin-top: 6px; display: block; }
+  table.stats-table { width: 100%; border-collapse: collapse; margin: 16px 0 28px; font-family: "Times New Roman", Times, serif; }
+  table.stats-table th, table.stats-table td { text-align: left; padding: 11px 16px; border: 1.5px solid #000; font-size: 14px; color: #000; line-height: 1.6; }
+  table.stats-table th { background: #f2f2f2; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
+  .code-container { border: 1.5px solid #000; background: #fff; margin-top: 16px; margin-bottom: 24px; }
   .code-table { width: 100%; border-collapse: collapse; margin: 0; }
-  .footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid #000; font-size: 12px; color: #222; display: flex; justify-content: space-between; font-family: "Times New Roman", Times, serif; font-weight: bold; }
+  .footer { margin-top: 48px; padding-top: 18px; border-top: 1.5px solid #000; font-size: 12.5px; color: #333; display: flex; justify-content: space-between; font-family: "Times New Roman", Times, serif; font-weight: bold; }
+  
   @media print {
-    body { padding: 20px; }
+    body { padding: 25px; line-height: 1.8; }
     .no-print { display: none !important; }
-    .code-container { page-break-inside: auto; }
+    .score-card, table.stats-table, .code-container { page-break-inside: avoid; }
+    .defect-card-item { page-break-inside: avoid !important; margin-bottom: 28px !important; }
   }
 </style>
 </head><body>
@@ -515,7 +518,7 @@ function downloadPDF(prData, fullFixedCode, submittedCode, language = 'python', 
 </div>
 
 <h2>1. Executive Overview & Code Health Assessment</h2>
-<p style="margin-bottom: 16px; color: #000; font-size: 14px; line-height: 1.6;">${prData.executive_overview || 'Comprehensive multi-agent code analysis completed. Findings, technical root causes, and full code remediation are documented below.'}</p>
+<p style="margin-bottom: 18px; color: #111; font-size: 14.5px; line-height: 1.75;">${prData.executive_overview || 'Comprehensive multi-agent code analysis completed. Findings, technical root causes, and full code remediation are documented below.'}</p>
 
 <div class="score-row">
   <div class="score-card">
@@ -542,15 +545,15 @@ function downloadPDF(prData, fullFixedCode, submittedCode, language = 'python', 
 </table>
 
 <h2>3. Comprehensive Defect Analysis & Error Fixes</h2>
-<p style="color: #222; font-size: 13px; margin-bottom: 14px;">Detailed technical breakdown for every identified defect, including root cause, impact, and exact code fix:</p>
-${errorAndFixCards || '<p style="color: #000; font-size: 14px;">No defects identified in submitted codebase.</p>'}
+<p style="color: #333; font-size: 13.5px; margin-bottom: 18px;">Detailed technical breakdown for every identified defect, including root cause, impact, and exact code fix:</p>
+${errorAndFixCards || '<p style="color: #000; font-size: 14.5px;">No defects identified in submitted codebase.</p>'}
 
 <h2>4. Full Remediated Source Code (Fixed Codebase)</h2>
-<p style="color: #222; font-size: 13px; margin-bottom: 10px;">The complete corrected source code with all vulnerabilities resolved and secure coding standards implemented:</p>
+<p style="color: #333; font-size: 13.5px; margin-bottom: 12px;">The complete corrected source code with all vulnerabilities resolved and secure coding standards implemented:</p>
 <div class="code-container">
-  <div style="background: #f0f0f0; border-bottom: 1px solid #000; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-family: 'Times New Roman', Times, serif;">
-    <span style="font-size: 12px; font-weight: bold; text-transform: uppercase;">📄 SECURED SOURCE CODE (${formattedLang})</span>
-    <button id="copy-btn" class="btn-action no-print" onclick="copyFixedCode()" style="padding: 4px 10px; font-size: 11px;">📋 Copy Fixed Code</button>
+  <div style="background: #f0f0f0; border-bottom: 1.5px solid #000; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-family: 'Times New Roman', Times, serif;">
+    <span style="font-size: 12.5px; font-weight: bold; text-transform: uppercase;">📄 SECURED SOURCE CODE (${formattedLang})</span>
+    <button id="copy-btn" class="btn-action no-print" onclick="copyFixedCode()" style="padding: 5px 12px; font-size: 11.5px;">📋 Copy Fixed Code</button>
   </div>
   <table class="code-table">
     <tbody>
@@ -561,8 +564,8 @@ ${errorAndFixCards || '<p style="color: #000; font-size: 14px;">No defects ident
 
 ${prData.positive_observations?.length > 0 ? `
 <h2>5. Positive Observations & Best Practices</h2>
-<ul style="margin: 8px 0 8px 24px; color: #000; font-size: 14px;">
-  ${prData.positive_observations.map(o => `<li style="margin-bottom: 6px;">${o}</li>`).join('')}
+<ul style="margin: 12px 0 12px 28px; color: #111; font-size: 14.5px; line-height: 1.75;">
+  ${prData.positive_observations.map(o => `<li style="margin-bottom: 8px;">${o}</li>`).join('')}
 </ul>` : ''}
 
 <div class="footer">
@@ -989,28 +992,28 @@ export default function App() {
 
   return (
     <>
-      <header className="bg-surface/70 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-white/10 shadow-[0_20px_40px_rgba(99,102,241,0.15)] flex justify-between items-center px-4 md:px-margin-desktop max-w-container-max mx-auto h-20 left-0 right-0">
+      <header className="bg-white/95 dark:bg-surface/80 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-slate-200 dark:border-white/10 shadow-sm dark:shadow-[0_20px_40px_rgba(99,102,241,0.15)] flex justify-between items-center px-4 md:px-margin-desktop max-w-container-max mx-auto h-20 left-0 right-0">
         <div className="flex items-center gap-gutter">
-          <a className="font-headline-md text-headline-md font-black tracking-tighter text-primary flex items-center gap-2" href="#">
+          <a className="font-headline-md text-headline-md font-black tracking-tighter text-indigo-700 dark:text-primary flex items-center gap-2" href="#">
             <span className="material-symbols-outlined" style={{fontSize: '28px', fontVariationSettings: "'FILL' 1"}}>policy</span>
             <span className="hidden sm:inline">AI Code Analyzer</span>
           </a>
           <nav className="flex items-center gap-2 md:gap-stack-lg ml-2 md:ml-stack-lg">
-            <button onClick={() => setActiveTab('scanner')} className={`${activeTab === 'scanner' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant hover:text-on-surface hover:bg-primary/10'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold text-sm md:text-base`}>Scanner</button>
-            <button onClick={() => setActiveTab('results')} disabled={!result} className={`${activeTab === 'results' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : 'hover:text-on-surface hover:bg-primary/10'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold text-sm md:text-base`}>Results</button>
-            <button onClick={() => setActiveTab('agents')} className={`${activeTab === 'agents' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant hover:text-on-surface hover:bg-primary/10'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 font-semibold text-sm md:text-base`}>Agents Pipeline</button>
+            <button onClick={() => setActiveTab('scanner')} className={`${activeTab === 'scanner' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Scanner</button>
+            <button onClick={() => setActiveTab('results')} disabled={!result} className={`${activeTab === 'results' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : 'hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Results</button>
+            <button onClick={() => setActiveTab('agents')} className={`${activeTab === 'agents' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Agents Pipeline</button>
           </nav>
         </div>
 
         {/* Modes Switching Container with Entrance Intimation */}
         <div className="relative flex items-center">
-          <div className="flex items-center bg-surface-variant/80 border border-white/10 rounded-xl p-1 shadow-sm backdrop-blur-md">
+          <div className="flex items-center bg-slate-200/90 dark:bg-surface-variant/80 border border-slate-300 dark:border-white/10 rounded-xl p-1 shadow-inner dark:shadow-sm backdrop-blur-md">
             <button
               onClick={() => toggleTheme('light')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 theme === 'light'
                   ? 'bg-white text-indigo-950 shadow-md ring-1 ring-black/5'
-                  : 'text-outline-variant hover:text-on-surface'
+                  : 'text-slate-600 dark:text-outline-variant hover:text-slate-900 dark:hover:text-on-surface'
               }`}
               title="Switch to Light Mode"
             >
@@ -1022,8 +1025,8 @@ export default function App() {
               onClick={() => toggleTheme('dark')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 theme === 'dark'
-                  ? 'bg-primary text-on-primary shadow-md'
-                  : 'text-outline-variant hover:text-on-surface'
+                  ? 'bg-indigo-600 dark:bg-primary text-white dark:text-on-primary shadow-md'
+                  : 'text-slate-600 dark:text-outline-variant hover:text-slate-900 dark:hover:text-on-surface'
               }`}
               title="Switch to Dark Mode"
             >
@@ -1054,25 +1057,25 @@ export default function App() {
       </header>
 
       <div className="flex flex-1 pt-20">
-        <aside className="bg-surface-container-low/80 backdrop-blur-lg border-r border-white/5 h-[calc(100vh-80px)] w-64 fixed left-0 top-20 z-40 flex flex-col py-stack-lg px-stack-md hidden md:flex">
+        <aside className="bg-white/95 dark:bg-surface-container-low/80 backdrop-blur-lg border-r border-slate-200 dark:border-white/5 h-[calc(100vh-80px)] w-64 fixed left-0 top-20 z-40 flex flex-col py-stack-lg px-stack-md hidden md:flex shadow-sm dark:shadow-none">
           <div className="mb-stack-lg px-4">
             <div className="flex items-center gap-3 mb-2">
               <div>
-                <h2 className="font-label-caps text-label-caps uppercase tracking-widest text-on-background">Multi-Agent Engine</h2>
-                <p className={`text-xs ${analyzing ? 'text-primary animate-pulse' : 'text-emerald-500'}`}>{analyzing ? 'Active Scanning...' : 'System Ready'}</p>
+                <h2 className="font-label-caps text-label-caps uppercase tracking-widest text-slate-800 dark:text-on-background font-bold">Multi-Agent Engine</h2>
+                <p className={`text-xs ${analyzing ? 'text-indigo-600 dark:text-primary animate-pulse font-semibold' : 'text-emerald-600 dark:text-emerald-500 font-medium'}`}>{analyzing ? 'Active Scanning...' : 'System Ready'}</p>
               </div>
             </div>
           </div>
           <nav className="flex-1 flex flex-col gap-2">
-            <button onClick={() => setActiveTab('scanner')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'scanner' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant hover:bg-surface-variant'}`}>
+            <button onClick={() => setActiveTab('scanner')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'scanner' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'}`}>
               <span className="material-symbols-outlined">search</span>
               <span className="font-body-md text-body-md">Scanner Engine</span>
             </button>
-            <button onClick={() => { if(result) setActiveTab('results') }} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'results' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant hover:bg-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <button onClick={() => { if(result) setActiveTab('results') }} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'results' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'} ${!result ? 'opacity-50 cursor-not-allowed' : ''}`}>
               <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
               <span className="font-body-md text-body-md">Vulnerabilities</span>
             </button>
-            <button onClick={() => setActiveTab('agents')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'agents' ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface-variant hover:bg-surface-variant'}`}>
+            <button onClick={() => setActiveTab('agents')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'agents' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'}`}>
               <span className="material-symbols-outlined">hub</span>
               <span className="font-body-md text-body-md">Agents Pipeline</span>
             </button>
@@ -1291,16 +1294,16 @@ export default function App() {
               </div>
 
               {/* Scanner Input Area */}
-              <div className="mb-section-gap glass-panel rounded-xl overflow-hidden border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-                <div className="bg-surface-container-low px-4 py-3 flex justify-between items-center border-b border-white/5">
+              <div className="mb-section-gap glass-panel rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                <div className="bg-slate-50 dark:bg-surface-container-low px-4 py-3 flex justify-between items-center border-b border-slate-200 dark:border-white/5">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-outline-variant text-sm">code</span>
-                    <span className="font-code-sm text-code-sm text-on-surface-variant">Input Code</span>
+                    <span className="material-symbols-outlined text-indigo-600 dark:text-outline-variant text-sm">code</span>
+                    <span className="font-code-sm text-code-sm text-slate-800 dark:text-on-surface-variant font-bold">Input Code</span>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={handlePaste} className={`flex items-center gap-1 px-3 py-1 rounded text-sm ${mode === 'paste' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}><span className="material-symbols-outlined" style={{fontSize: '16px'}}>content_paste</span> Paste</button>
-                    <button onClick={() => setMode('file')} className={`flex items-center gap-1 px-3 py-1 rounded text-sm ${mode === 'file' ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-variant'}`}><span className="material-symbols-outlined" style={{fontSize: '16px'}}>upload</span> Upload</button>
-                    {mode === 'paste' && <button onClick={loadSample} className="px-3 py-1 rounded text-sm text-on-surface-variant hover:bg-surface-variant">Sample</button>}
+                    <button onClick={handlePaste} className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs md:text-sm font-semibold transition-all ${mode === 'paste' ? 'bg-indigo-600 dark:bg-primary text-white dark:text-on-primary shadow-sm' : 'bg-white dark:bg-transparent text-slate-700 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant border border-slate-200 dark:border-transparent'}`}><span className="material-symbols-outlined" style={{fontSize: '16px'}}>content_paste</span> Paste</button>
+                    <button onClick={() => setMode('file')} className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs md:text-sm font-semibold transition-all ${mode === 'file' ? 'bg-indigo-600 dark:bg-primary text-white dark:text-on-primary shadow-sm' : 'bg-white dark:bg-transparent text-slate-700 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant border border-slate-200 dark:border-transparent'}`}><span className="material-symbols-outlined" style={{fontSize: '16px'}}>upload</span> Upload</button>
+                    {mode === 'paste' && <button onClick={loadSample} className="px-3 py-1.5 rounded text-xs md:text-sm font-semibold bg-white dark:bg-transparent text-slate-700 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant border border-slate-200 dark:border-transparent">Sample</button>}
                   </div>
                 </div>
                 
@@ -1313,7 +1316,7 @@ export default function App() {
                   />
                 ) : (
                   <div 
-                    className={`min-h-[400px] flex items-center justify-center flex-col m-4 rounded border-2 border-dashed cursor-pointer transition-colors ${dragOver ? 'border-primary bg-primary/5' : 'border-white/10 hover:border-white/30'}`}
+                    className={`min-h-[400px] flex items-center justify-center flex-col m-4 rounded border-2 border-dashed cursor-pointer transition-colors ${dragOver ? 'border-indigo-600 dark:border-primary bg-indigo-50 dark:bg-primary/5' : 'border-slate-300 dark:border-white/10 hover:border-indigo-400 dark:hover:border-white/30'}`}
                     onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={onDrop}
@@ -1322,25 +1325,25 @@ export default function App() {
                     <input ref={fileRef} type="file" className="hidden" onChange={e => { if (e.target.files[0]) setFile(e.target.files[0]) }} />
                     {file ? (
                       <>
-                        <span className="material-symbols-outlined text-4xl mb-2 text-primary">description</span>
-                        <div>{file.name}</div>
-                        <button onClick={e => { e.stopPropagation(); setFile(null); setMode('paste') }} className="mt-4 px-4 py-2 bg-error/20 text-error rounded hover:bg-error/30 transition-colors">Remove File</button>
+                        <span className="material-symbols-outlined text-4xl mb-2 text-indigo-600 dark:text-primary">description</span>
+                        <div className="font-semibold text-slate-800 dark:text-on-surface">{file.name}</div>
+                        <button onClick={e => { e.stopPropagation(); setFile(null); setMode('paste') }} className="mt-4 px-4 py-2 bg-error/20 text-error rounded hover:bg-error/30 transition-colors font-semibold">Remove File</button>
                       </>
                     ) : (
                       <>
-                        <span className="material-symbols-outlined text-4xl mb-2 text-outline-variant">upload_file</span>
-                        <div>Drop your source file here</div>
-                        <div className="text-sm text-outline-variant">or click to browse</div>
+                        <span className="material-symbols-outlined text-4xl mb-2 text-slate-400 dark:text-outline-variant">upload_file</span>
+                        <div className="font-semibold text-slate-700 dark:text-on-surface">Drop your source file here</div>
+                        <div className="text-sm text-slate-500 dark:text-outline-variant">or click to browse</div>
                       </>
                     )}
                   </div>
                 )}
 
-                <div className="p-4 flex justify-end border-t border-white/5 bg-surface-container-low">
+                <div className="p-4 flex justify-end border-t border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-surface-container-low">
                   <button 
                     onClick={runAnalysis} 
                     disabled={loading || !canRun} 
-                    className="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-semibold text-sm uppercase tracking-wider flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-indigo-600 dark:bg-primary text-white dark:text-on-primary px-6 py-2.5 rounded-lg font-bold text-sm uppercase tracking-wider flex items-center gap-2 hover:bg-indigo-700 dark:hover:brightness-110 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                   >
                     {loading ? <span className="spin"></span> : <span className="material-symbols-outlined text-lg" style={{fontVariationSettings: "'FILL' 1"}}>play_arrow</span>}
                     {loading ? 'Analyzing...' : 'Run Analysis'}
@@ -1352,85 +1355,133 @@ export default function App() {
           
           {activeTab === 'results' && result && (
             <div>
-              <div className="mb-section-gap flex justify-between items-end">
+              <div className="mb-section-gap flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                  <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">Analysis Results</h1>
-                  <p className="text-on-surface-variant">Reviewing <span className="font-code-sm text-code-sm text-primary">{mode === 'file' ? file?.name || 'Uploaded File' : 'Paste Buffer'}</span></p>
+                  <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2 text-slate-900 dark:text-on-surface font-black">Analysis Results</h1>
+                  <p className="text-slate-600 dark:text-on-surface-variant font-medium">Reviewing <span className="font-code-sm text-code-sm text-indigo-700 dark:text-primary font-bold">{mode === 'file' ? file?.name || 'Uploaded File' : 'Paste Buffer'}</span></p>
                 </div>
                 {prReport && (
                   <button 
                     onClick={() => downloadPDF(prReport, fixedCode, result._submittedCode, result._submittedLanguage, result.findings)}
-                    className="bg-surface-variant text-on-surface px-4 py-2 rounded-lg font-semibold text-sm uppercase tracking-wider flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all duration-200 border border-white/10"
+                    className="bg-indigo-600 dark:bg-surface-variant text-white dark:text-on-surface px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 hover:bg-indigo-700 dark:hover:brightness-110 active:scale-95 transition-all duration-200 border border-indigo-700 dark:border-white/10 shadow-md"
                   >
                     <span className="material-symbols-outlined text-lg">download</span>
                     Download PR Summary (PDF)
                   </button>
                 )}
                 {!prReport && prLoading && (
-                  <span className="text-outline-variant text-sm flex items-center gap-2"><span className="spin" style={{width: 14, height: 14}}></span> Generating PR Summary...</span>
+                  <span className="text-slate-600 dark:text-outline-variant text-sm flex items-center gap-2 font-medium"><span className="spin" style={{width: 14, height: 14}}></span> Generating PR Summary...</span>
                 )}
               </div>
 
-              {/* Analytics Dashboard with Health Score & Severity Distribution */}
+              {/* Error Analytics & Code Health Dashboard (Replaces Severity-Only Dashboard) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-section-gap">
-                {/* Health Score */}
+                {/* Code Health & Key Metrics Overview */}
                 <div className="glass-panel rounded-xl p-stack-lg flex flex-col items-center justify-center lg:col-span-4 relative overflow-hidden">
                   <div className={`absolute inset-0 bg-gradient-to-br from-${healthScore < 50 ? 'error' : healthScore < 80 ? 'risk-medium' : 'emerald-500'}/5 to-transparent z-0`}></div>
-                  <div className="relative z-10 text-center">
-                    <h3 className="font-label-caps text-label-caps text-outline uppercase tracking-widest mb-4">Code Health</h3>
-                    <div className="relative inline-flex items-center justify-center">
+                  <div className="relative z-10 text-center w-full">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="font-label-caps text-label-caps text-slate-700 dark:text-outline uppercase tracking-widest font-bold text-xs">Code Health Score</h3>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${healthScore < 50 ? 'bg-red-100 text-red-700 dark:bg-risk-critical/20 dark:text-risk-critical' : healthScore < 80 ? 'bg-amber-100 text-amber-800 dark:bg-risk-medium/20 dark:text-risk-medium' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-500'}`}>
+                        {healthScore < 50 ? 'Critical Attention' : healthScore < 80 ? 'Moderate Quality' : 'Clean & Secure'}
+                      </span>
+                    </div>
+
+                    <div className="relative inline-flex items-center justify-center my-2">
                       <svg className="w-32 h-32 transform -rotate-90">
-                        <circle className="text-surface-variant" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" strokeWidth="8"></circle>
+                        <circle className="text-slate-200 dark:text-surface-variant" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" strokeWidth="8"></circle>
                         <circle className={`text-${healthScore < 50 ? 'error' : healthScore < 80 ? 'risk-medium' : 'emerald-500'}`} cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" strokeDasharray="351.85" strokeDashoffset={351.85 - (351.85 * healthScore) / 100} strokeLinecap="round" strokeWidth="8" style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}></circle>
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className={`font-display-metric text-display-metric text-${healthScore < 50 ? 'error' : healthScore < 80 ? 'risk-medium' : 'emerald-500'}`}>{healthScore}</span>
-                        <span className="text-xs text-on-surface-variant">/100</span>
+                        <span className={`font-display-metric text-display-metric text-${healthScore < 50 ? 'error' : healthScore < 80 ? 'risk-medium' : 'emerald-500'} font-black`}>{healthScore}</span>
+                        <span className="text-xs text-slate-600 dark:text-on-surface-variant font-bold">/100</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200 dark:border-white/5">
+                      <div className="text-center">
+                        <div className="text-[11px] text-slate-500 dark:text-outline-variant font-medium">Defects</div>
+                        <div className="text-base font-bold text-slate-900 dark:text-on-surface">{findings.length}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-[11px] text-slate-500 dark:text-outline-variant font-medium">Blockers</div>
+                        <div className="text-base font-bold text-red-600 dark:text-risk-critical">{breakdown.Critical || 0}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-[11px] text-slate-500 dark:text-outline-variant font-medium">Est. Fix</div>
+                        <div className="text-base font-bold text-emerald-600 dark:text-emerald-500">{prReport?.estimated_fix_time || '15m'}</div>
                       </div>
                     </div>
                   </div>
                 </div>
-                
-                {/* Visual Severity Chart */}
-                <div className="glass-panel rounded-xl p-stack-md flex flex-col items-center justify-center lg:col-span-4 relative">
-                  <h3 className="font-label-caps text-label-caps text-outline uppercase tracking-widest mb-2 w-full text-center">Severity Distribution</h3>
-                  {chartData.length > 0 ? (
-                    <div style={{ width: '100%', height: 180 }}>
+
+                {/* Error Analytics Graph: Distribution by Defect Classification & Threat Impact */}
+                <div className="glass-panel rounded-xl p-stack-md flex flex-col justify-between lg:col-span-8 relative">
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <h3 className="font-label-caps text-label-caps text-slate-700 dark:text-outline uppercase tracking-widest font-bold text-xs">Error Analytics & Threat Distribution</h3>
+                      <p className="text-xs text-slate-500 dark:text-on-surface-variant mt-0.5">Defect occurrences and comparative risk impact across identified code weaknesses</p>
+                    </div>
+                    <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400" style={{ fontVariationSettings: "'FILL' 1" }}>bar_chart</span>
+                  </div>
+
+                  {errorTypesData.length > 0 ? (
+                    <div style={{ width: '100%', height: 210 }}>
                       <ResponsiveContainer>
-                        <PieChart>
-                          <Pie data={chartData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">
-                            {chartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                          <RechartsTooltip 
-                            contentStyle={{ backgroundColor: 'rgba(19, 19, 27, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
-                            itemStyle={{ color: '#fff' }}
+                        <BarChart data={errorTypesData} margin={{ top: 10, right: 15, left: -20, bottom: 25 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'} />
+                          <XAxis
+                            dataKey="name"
+                            stroke={theme === 'light' ? '#475569' : '#94a3b8'}
+                            tick={{ fontSize: 11, fill: theme === 'light' ? '#334155' : '#94a3b8', fontWeight: 600 }}
+                            interval={0}
+                            angle={-15}
+                            textAnchor="end"
                           />
-                        </PieChart>
+                          <YAxis stroke={theme === 'light' ? '#475569' : '#94a3b8'} tick={{ fontSize: 11, fill: theme === 'light' ? '#334155' : '#94a3b8' }} allowDecimals={false} />
+                          <RechartsTooltip
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload
+                                return (
+                                  <div className="bg-slate-900/95 dark:bg-surface-dim/95 backdrop-blur-md p-3 rounded-xl border border-slate-700 dark:border-white/15 shadow-xl text-xs max-w-xs text-white">
+                                    <div className="font-bold text-white mb-1 flex items-center gap-1.5">
+                                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: data.fill }}></span>
+                                      {data.name}
+                                    </div>
+                                    <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                      <span>Occurrences:</span>
+                                      <strong className="text-white">{data.count} issue{data.count > 1 ? 's' : ''}</strong>
+                                    </div>
+                                    <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                      <span>Threat Impact Score:</span>
+                                      <strong className="text-amber-400">{data.impactScore} pts ({data.causePercentage}% of total)</strong>
+                                    </div>
+                                    <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                      <span>Severity:</span>
+                                      <strong className={`text-${sevCls(data.highestSev)}`}>{data.highestSev}</strong>
+                                    </div>
+                                  </div>
+                                )
+                              }
+                              return null
+                            }}
+                          />
+                          <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                            {errorTypesData.map((entry, index) => (
+                              <Cell key={`bar-cell-${index}`} fill={entry.fill} />
+                            ))}
+                          </Bar>
+                        </BarChart>
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <div className="flex-1 flex items-center justify-center text-outline-variant text-sm">No Vulnerabilities Detected</div>
-                  )}
-                </div>
-
-                {/* Vulnerability Counts */}
-                <div className="lg:col-span-4 grid grid-cols-2 gap-4">
-                  {[
-                    { label: 'Critical', count: breakdown.Critical || 0, color: 'risk-critical', icon: 'dangerous' },
-                    { label: 'High', count: breakdown.High || 0, color: 'risk-high', icon: 'error' },
-                    { label: 'Medium', count: breakdown.Medium || 0, color: 'risk-medium', icon: 'warning' },
-                    { label: 'Low', count: breakdown.Low || 0, color: 'risk-low', icon: 'info' }
-                  ].map(s => (
-                    <div key={s.label} className={`glass-panel rounded-xl p-4 flex flex-col justify-between border-t-2 border-t-${s.color} glass-panel-interactive transition-all ${s.count === 0 ? 'opacity-70' : ''}`}>
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`font-label-caps text-label-caps text-${s.color} uppercase`}>{s.label}</span>
-                        <span className={`material-symbols-outlined text-${s.color}`} style={{fontVariationSettings: "'FILL' 1", fontSize: '18px'}}>{s.icon}</span>
-                      </div>
-                      <span className="text-3xl font-bold">{s.count}</span>
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-500 dark:text-outline-variant py-10">
+                      <span className="material-symbols-outlined text-4xl text-emerald-500 mb-2">analytics</span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-on-surface">Zero Errors Found</span>
+                      <span className="text-xs text-slate-500 dark:text-outline-variant mt-1">No defect analytics to graph.</span>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
@@ -1440,10 +1491,10 @@ export default function App() {
                 <div className="glass-panel rounded-xl p-stack-lg flex flex-col items-center justify-between lg:col-span-5 relative">
                   <div className="w-full flex items-center justify-between mb-2">
                     <div>
-                      <h3 className="font-label-caps text-label-caps text-outline uppercase tracking-widest">Error Types & Causes</h3>
-                      <p className="text-xs text-on-surface-variant mt-0.5">Distribution of error types and the amount of cause they contribute</p>
+                      <h3 className="font-label-caps text-label-caps text-slate-700 dark:text-outline uppercase tracking-widest font-bold text-xs">Error Types & Causes</h3>
+                      <p className="text-xs text-slate-500 dark:text-on-surface-variant mt-0.5">Distribution of error types and the amount of cause they contribute</p>
                     </div>
-                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>pie_chart</span>
+                    <span className="material-symbols-outlined text-indigo-600 dark:text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>pie_chart</span>
                   </div>
 
                   {errorTypesData.length > 0 ? (
@@ -1470,20 +1521,20 @@ export default function App() {
                                 if (active && payload && payload.length) {
                                   const data = payload[0].payload
                                   return (
-                                    <div className="bg-surface-dim/95 backdrop-blur-md p-3 rounded-xl border border-white/15 shadow-xl text-xs max-w-xs">
+                                    <div className="bg-slate-900/95 dark:bg-surface-dim/95 backdrop-blur-md p-3 rounded-xl border border-slate-700 dark:border-white/15 shadow-xl text-xs max-w-xs text-white">
                                       <div className="font-bold text-white mb-1 flex items-center gap-1.5">
                                         <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: data.fill }}></span>
                                         {data.name}
                                       </div>
-                                      <div className="text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                      <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
                                         <span>Occurrences:</span>
                                         <strong className="text-white">{data.count}</strong>
                                       </div>
-                                      <div className="text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                      <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
                                         <span>Cause Contribution:</span>
                                         <strong className="text-emerald-400">{data.causePercentage}% of total risk</strong>
                                       </div>
-                                      <div className="text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                      <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
                                         <span>Highest Severity:</span>
                                         <strong className={`text-${sevCls(data.highestSev)}`}>{data.highestSev}</strong>
                                       </div>
@@ -1499,19 +1550,19 @@ export default function App() {
                       
                       <div className="flex flex-wrap gap-2 justify-center mt-2 max-w-sm">
                         {errorTypesData.map((item, i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-xs text-on-surface-variant bg-surface-dim/70 px-2.5 py-1 rounded-full border border-white/5">
+                          <div key={i} className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-on-surface-variant bg-slate-100 dark:bg-surface-dim/70 px-2.5 py-1 rounded-full border border-slate-200 dark:border-white/5">
                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.fill }}></span>
-                            <span className="font-medium text-on-surface truncate max-w-[130px]">{item.name}</span>
-                            <span className="text-outline font-bold">({item.causePercentage}%)</span>
+                            <span className="font-semibold text-slate-800 dark:text-on-surface truncate max-w-[130px]">{item.name}</span>
+                            <span className="text-slate-500 dark:text-outline font-bold">({item.causePercentage}%)</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-outline-variant py-10">
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-500 dark:text-outline-variant py-10">
                       <span className="material-symbols-outlined text-4xl text-emerald-500 mb-2">verified</span>
-                      <span className="text-sm font-semibold text-on-surface">No Defects Detected</span>
-                      <span className="text-xs text-outline-variant mt-1">100% Clean Codebase</span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-on-surface">No Defects Detected</span>
+                      <span className="text-xs text-slate-500 dark:text-outline-variant mt-1">100% Clean Codebase</span>
                     </div>
                   )}
                 </div>
@@ -1519,30 +1570,30 @@ export default function App() {
                 {/* Detailed Error Types & Cause Impact Breakdown Panel */}
                 <div className="glass-panel rounded-xl p-stack-lg flex flex-col justify-between lg:col-span-7 relative">
                   <div className="mb-4">
-                    <h3 className="font-label-caps text-label-caps text-outline uppercase tracking-widest mb-1">Cause Impact & Defect Breakdown</h3>
-                    <p className="text-xs text-on-surface-variant">Breakdown of specific defect classifications and the amount of cause they are causing</p>
+                    <h3 className="font-label-caps text-label-caps text-slate-700 dark:text-outline uppercase tracking-widest font-bold text-xs">Cause Impact & Defect Breakdown</h3>
+                    <p className="text-xs text-slate-500 dark:text-on-surface-variant">Breakdown of specific defect classifications and the amount of cause they are causing</p>
                   </div>
 
                   {errorTypesData.length > 0 ? (
                     <div className="space-y-3.5 overflow-y-auto max-h-[300px] pr-1">
                       {errorTypesData.map((item, i) => (
-                        <div key={i} className="bg-surface-dim/70 rounded-xl p-3 border border-white/5 hover:border-white/15 transition-all">
+                        <div key={i} className="bg-slate-50 dark:bg-surface-dim/70 rounded-xl p-3 border border-slate-200 dark:border-white/5 hover:border-indigo-300 dark:hover:border-white/15 transition-all shadow-sm dark:shadow-none">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.fill }}></span>
-                              <span className="font-semibold text-sm text-on-surface">{item.name}</span>
-                              <span className="bg-surface-variant text-on-surface-variant text-[11px] font-bold px-2 py-0.5 rounded-full">{item.count} issue{item.count > 1 ? 's' : ''}</span>
+                              <span className="font-bold text-sm text-slate-900 dark:text-on-surface">{item.name}</span>
+                              <span className="bg-slate-200 dark:bg-surface-variant text-slate-700 dark:text-on-surface-variant text-[11px] font-bold px-2 py-0.5 rounded-full">{item.count} issue{item.count > 1 ? 's' : ''}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-${sevCls(item.highestSev)}/20 text-${sevCls(item.highestSev)}`}>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${item.highestSev === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-risk-critical/20 dark:text-risk-critical' : item.highestSev === 'High' ? 'bg-orange-100 text-orange-700 dark:bg-risk-high/20 dark:text-risk-high' : 'bg-amber-100 text-amber-800 dark:bg-risk-medium/20 dark:text-risk-medium'}`}>
                                 {item.highestSev}
                               </span>
-                              <span className="text-sm font-bold text-on-surface">{item.causePercentage}% cause</span>
+                              <span className="text-sm font-bold text-slate-900 dark:text-on-surface">{item.causePercentage}% cause</span>
                             </div>
                           </div>
                           
                           {/* Progress bar for cause percentage */}
-                          <div className="w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+                          <div className="w-full bg-slate-200 dark:bg-surface-variant h-2 rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all duration-700 ease-out"
                               style={{ width: `${item.causePercentage}%`, backgroundColor: item.fill }}
@@ -1550,16 +1601,16 @@ export default function App() {
                           </div>
 
                           {item.description && (
-                            <p className="text-xs text-on-surface-variant mt-2 line-clamp-1 truncate">{item.description}</p>
+                            <p className="text-xs text-slate-600 dark:text-on-surface-variant mt-2 line-clamp-1 truncate font-medium">{item.description}</p>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-outline-variant py-10">
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-500 dark:text-outline-variant py-10">
                       <span className="material-symbols-outlined text-4xl text-emerald-500 mb-2">check_circle</span>
-                      <span className="text-sm font-semibold text-on-surface">Zero Security Flaws Identified</span>
-                      <span className="text-xs text-outline-variant mt-1">Uploaded code passed all static and heuristic checks.</span>
+                      <span className="text-sm font-semibold text-slate-800 dark:text-on-surface">Zero Security Flaws Identified</span>
+                      <span className="text-xs text-slate-500 dark:text-outline-variant mt-1">Uploaded code passed all static and heuristic checks.</span>
                     </div>
                   )}
                 </div>

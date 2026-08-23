@@ -73,8 +73,17 @@ html:not(.dark), html.light {
 }
 
 /* Light mode overrides for Tailwind utility classes */
+html:not(.dark) header, html.light header {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+html:not(.dark) .bg-surface, html.light .bg-surface,
+html:not(.dark) .bg-surface\/90, html.light .bg-surface\/90,
+html:not(.dark) .bg-surface\/80, html.light .bg-surface\/80,
 html:not(.dark) .bg-surface\/70, html.light .bg-surface\/70 {
-  background-color: rgba(255, 255, 255, 0.88) !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
@@ -83,7 +92,7 @@ html:not(.dark) .bg-surface-container-low, html.light .bg-surface-container-low 
 }
 
 html:not(.dark) .bg-surface-container-low\/80, html.light .bg-surface-container-low\/80 {
-  background-color: rgba(255, 255, 255, 0.92) !important;
+  background-color: rgba(255, 255, 255, 0.96) !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
@@ -108,20 +117,47 @@ html:not(.dark) .text-on-background, html.light .text-on-background {
 }
 
 html:not(.dark) .text-on-surface-variant, html.light .text-on-surface-variant {
-  color: #475569 !important;
+  color: #334155 !important;
 }
 
 html:not(.dark) .text-outline-variant, html.light .text-outline-variant {
   color: #64748b !important;
 }
 
+html:not(.dark) .text-outline, html.light .text-outline {
+  color: #475569 !important;
+}
+
+html:not(.dark) .text-primary, html.light .text-primary {
+  color: #4338ca !important;
+  font-weight: 700;
+}
+
+html:not(.dark) .bg-primary, html.light .bg-primary {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+html:not(.dark) .text-on-primary, html.light .text-on-primary {
+  color: #ffffff !important;
+}
+
+html:not(.dark) .bg-primary-container, html.light .bg-primary-container {
+  background-color: #e0e7ff !important;
+  color: #312e81 !important;
+}
+
+html:not(.dark) .text-on-primary-container, html.light .text-on-primary-container {
+  color: #312e81 !important;
+}
+
 html:not(.dark) .border-white\/5, html:not(.dark) .border-white\/10, html:not(.dark) .border-white\/20,
 html.light .border-white\/5, html.light .border-white\/10, html.light .border-white\/20 {
-  border-color: rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
 }
 
 html:not(.dark) header, html.light header {
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
 }
 
 /* Light mode Code Editor adjustments */
@@ -131,7 +167,7 @@ html:not(.dark) .code-editor-wrapper, html.light .code-editor-wrapper {
 
 html:not(.dark) .code-editor-gutter, html.light .code-editor-gutter {
   background-color: #f8fafc !important;
-  color: #94a3b8 !important;
+  color: #64748b !important;
   border-right-color: #e2e8f0 !important;
 }
 
@@ -140,11 +176,12 @@ html:not(.dark) .code-editor-main, html.light .code-editor-main {
 }
 
 html:not(.dark) .syntax-highlight-layer, html.light .syntax-highlight-layer {
-  color: #1e293b;
+  color: #0f172a;
 }
 
 html:not(.dark) .syntax-highlight-layer .token.keyword, html.light .syntax-highlight-layer .token.keyword {
   color: #7c3aed;
+  font-weight: 600;
 }
 
 html:not(.dark) .syntax-highlight-layer .token.string, html.light .syntax-highlight-layer .token.string {
@@ -152,7 +189,8 @@ html:not(.dark) .syntax-highlight-layer .token.string, html.light .syntax-highli
 }
 
 html:not(.dark) .syntax-highlight-layer .token.function, html.light .syntax-highlight-layer .token.function {
-  color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 600;
 }
 
 html:not(.dark) .syntax-highlight-layer .token.comment, html.light .syntax-highlight-layer .token.comment {
@@ -160,7 +198,7 @@ html:not(.dark) .syntax-highlight-layer .token.comment, html.light .syntax-highl
 }
 
 html:not(.dark) .syntax-highlight-layer .token.number, html.light .syntax-highlight-layer .token.number {
-  color: #d97706;
+  color: #c2410c;
 }
 
 html:not(.dark) .code-editor-textarea::placeholder, html.light .code-editor-textarea::placeholder {
@@ -169,7 +207,7 @@ html:not(.dark) .code-editor-textarea::placeholder, html.light .code-editor-text
 
 html:not(.dark) .code-viewer-container, html.light .code-viewer-container {
   background-color: #ffffff !important;
-  color: #1e293b !important;
+  color: #0f172a !important;
 }
 
 /* Custom scrollbar */
