@@ -794,6 +794,7 @@ export default function App() {
 
   const [result, setResult] = useState(null)
   const [filter, setFilter] = useState('All')
+  const [selectedError, setSelectedError] = useState(null)
   const [prReport, setPrReport] = useState(null)
   const [prLoading, setPrLoading] = useState(false)
 
@@ -825,6 +826,7 @@ export default function App() {
     setLoading(true)
     setAnalyzing(true)
     setResult(null)
+    setSelectedError(null)
     setPrReport(null)
     setFixedCode(null)
     setShowFixedCode(false)
@@ -953,27 +955,51 @@ export default function App() {
     Low: 5
   }
 
+  const SHORT_NAME_MAP = {
+    'Hardcoded Secret': 'Secrets',
+    'Hardcoded Credentials': 'Credentials',
+    'Too Many Parameters': 'Too Many Params',
+    'Bare Except': 'Bare Except',
+    'Command Injection': 'Cmd Injection',
+    'SQL Injection': 'SQL Injection',
+    'Cross-Site Scripting': 'XSS Defect',
+    'Insecure Deserialization': 'Deserialization',
+    'Session Disabled': 'Session Config',
+    'Dangerous Eval': 'Dangerous Eval',
+    'Path Traversal': 'Path Traversal'
+  }
+
   const errorTypesData = useMemo(() => {
     if (!findings || findings.length === 0) return []
 
     const typeMap = {}
     findings.forEach(f => {
       const rawType = f.type || f.finding_type || f.title || 'Security Defect'
-      const cleanType = rawType.replace(/_/g, ' ').trim()
-      if (!typeMap[cleanType]) {
-        typeMap[cleanType] = {
-          name: cleanType,
+      // Strip parenthetical items e.g. (OWASP A07:2021) or (Error Handling) for clean X-axis display
+      const baseName = rawType.replace(/\s*\([^)]*\)/g, '').replace(/_/g, ' ').trim()
+      const shortName = SHORT_NAME_MAP[baseName] || (baseName.length > 16 ? baseName.slice(0, 14) + '…' : baseName)
+      const fullName = rawType.replace(/_/g, ' ').trim()
+      
+      if (!typeMap[shortName]) {
+        typeMap[shortName] = {
+          name: shortName, // Short concise name for bottom of the bar
+          fullName: fullName, // Full name with OWASP/classification
           count: 0,
           severities: [],
           highestSev: f.severity || 'Medium',
           totalImpactScore: 0,
-          description: f.description || ''
+          description: f.description || '',
+          recommendation: f.recommendation || f.fix_summary || f.action_required || '',
+          lines: []
         }
       }
-      typeMap[cleanType].count += 1
-      typeMap[cleanType].severities.push(f.severity || 'Medium')
+      typeMap[shortName].count += 1
+      typeMap[shortName].severities.push(f.severity || 'Medium')
+      if (f.line || f.line_number) {
+        typeMap[shortName].lines.push(f.line || f.line_number)
+      }
       const weight = SEVERITY_WEIGHT[f.severity] || 15
-      typeMap[cleanType].totalImpactScore += weight
+      typeMap[shortName].totalImpactScore += weight
     })
 
     const totalImpact = Object.values(typeMap).reduce((sum, item) => sum + item.totalImpactScore, 0) || 1
@@ -1416,64 +1442,121 @@ export default function App() {
                 </div>
 
                 {/* Error Analytics Graph: Distribution by Defect Classification & Threat Impact */}
-                <div className="glass-panel rounded-xl p-stack-md flex flex-col justify-between lg:col-span-8 relative">
+                <div className="glass-panel rounded-xl p-stack-md flex flex-col justify-between lg:col-span-8 relative bg-white dark:bg-surface/70 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none">
                   <div className="flex justify-between items-center mb-2">
                     <div>
-                      <h3 className="font-label-caps text-label-caps text-slate-700 dark:text-outline uppercase tracking-widest font-bold text-xs">Error Analytics & Threat Distribution</h3>
-                      <p className="text-xs text-slate-500 dark:text-on-surface-variant mt-0.5">Defect occurrences and comparative risk impact across identified code weaknesses</p>
+                      <h3 className="font-label-caps text-label-caps text-slate-800 dark:text-outline uppercase tracking-widest font-bold text-xs">Error Analytics & Threat Distribution</h3>
+                      <p className="text-xs text-slate-600 dark:text-on-surface-variant mt-0.5">Defect occurrences and comparative risk impact across identified code weaknesses</p>
                     </div>
                     <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400" style={{ fontVariationSettings: "'FILL' 1" }}>bar_chart</span>
                   </div>
 
                   {errorTypesData.length > 0 ? (
-                    <div style={{ width: '100%', height: 210 }}>
-                      <ResponsiveContainer>
-                        <BarChart data={errorTypesData} margin={{ top: 10, right: 15, left: -20, bottom: 25 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'} />
-                          <XAxis
-                            dataKey="name"
-                            stroke={theme === 'light' ? '#475569' : '#94a3b8'}
-                            tick={{ fontSize: 11, fill: theme === 'light' ? '#334155' : '#94a3b8', fontWeight: 600 }}
-                            interval={0}
-                            angle={-15}
-                            textAnchor="end"
-                          />
-                          <YAxis stroke={theme === 'light' ? '#475569' : '#94a3b8'} tick={{ fontSize: 11, fill: theme === 'light' ? '#334155' : '#94a3b8' }} allowDecimals={false} />
-                          <RechartsTooltip
-                            content={({ active, payload }) => {
-                              if (active && payload && payload.length) {
-                                const data = payload[0].payload
-                                return (
-                                  <div className="bg-slate-900/95 dark:bg-surface-dim/95 backdrop-blur-md p-3 rounded-xl border border-slate-700 dark:border-white/15 shadow-xl text-xs max-w-xs text-white">
-                                    <div className="font-bold text-white mb-1 flex items-center gap-1.5">
-                                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: data.fill }}></span>
-                                      {data.name}
+                    <div>
+                      <div style={{ width: '100%', height: 200 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={errorTypesData} margin={{ top: 10, right: 15, left: -20, bottom: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={theme === 'light' ? '#e2e8f0' : 'rgba(255,255,255,0.06)'} />
+                            <XAxis
+                              dataKey="name"
+                              stroke={theme === 'light' ? '#64748b' : '#94a3b8'}
+                              tick={{ fontSize: 11.5, fill: theme === 'light' ? '#0f172a' : '#f8fafc', fontWeight: 700 }}
+                              interval={0}
+                              height={32}
+                            />
+                            <YAxis stroke={theme === 'light' ? '#64748b' : '#94a3b8'} tick={{ fontSize: 11, fill: theme === 'light' ? '#334155' : '#94a3b8' }} allowDecimals={false} />
+                            <RechartsTooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload
+                                  return (
+                                    <div className="bg-slate-900/95 dark:bg-surface-dim/95 backdrop-blur-md p-3 rounded-xl border border-slate-700 dark:border-white/15 shadow-xl text-xs max-w-xs text-white">
+                                      <div className="font-bold text-white mb-1 flex items-center gap-1.5">
+                                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: data.fill }}></span>
+                                        {data.fullName || data.name}
+                                      </div>
+                                      <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                        <span>Occurrences:</span>
+                                        <strong className="text-white">{data.count} issue{data.count > 1 ? 's' : ''}</strong>
+                                      </div>
+                                      <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                        <span>Threat Impact Score:</span>
+                                        <strong className="text-amber-400">{data.impactScore} pts ({data.causePercentage}% of total)</strong>
+                                      </div>
+                                      <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
+                                        <span>Severity:</span>
+                                        <strong className={`text-${sevCls(data.highestSev)}`}>{data.highestSev}</strong>
+                                      </div>
+                                      <div className="mt-1 text-[10px] text-indigo-300 italic">Click bar to view full details below</div>
                                     </div>
-                                    <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
-                                      <span>Occurrences:</span>
-                                      <strong className="text-white">{data.count} issue{data.count > 1 ? 's' : ''}</strong>
-                                    </div>
-                                    <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
-                                      <span>Threat Impact Score:</span>
-                                      <strong className="text-amber-400">{data.impactScore} pts ({data.causePercentage}% of total)</strong>
-                                    </div>
-                                    <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
-                                      <span>Severity:</span>
-                                      <strong className={`text-${sevCls(data.highestSev)}`}>{data.highestSev}</strong>
-                                    </div>
-                                  </div>
-                                )
-                              }
-                              return null
-                            }}
-                          />
-                          <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                            {errorTypesData.map((entry, index) => (
-                              <Cell key={`bar-cell-${index}`} fill={entry.fill} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                                  )
+                                }
+                                return null
+                              }}
+                            />
+                            <Bar
+                              dataKey="count"
+                              radius={[6, 6, 0, 0]}
+                              cursor="pointer"
+                              onClick={(entry) => setSelectedError(selectedError?.name === entry.name ? null : entry)}
+                            >
+                              {errorTypesData.map((entry, index) => (
+                                <Cell
+                                  key={`bar-cell-${index}`}
+                                  fill={entry.fill}
+                                  opacity={selectedError ? (selectedError.name === entry.name ? 1 : 0.45) : 1}
+                                  stroke={selectedError?.name === entry.name ? (theme === 'light' ? '#4338ca' : '#ffffff') : 'none'}
+                                  strokeWidth={2}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Clickable Bar Details Callout */}
+                      {selectedError ? (
+                        <div className="mt-3 p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/90 dark:bg-indigo-950/40 backdrop-blur-md animate-tooltip-in">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedError.fill }}></span>
+                                <h4 className="font-bold text-sm text-slate-900 dark:text-white">{selectedError.fullName || selectedError.name}</h4>
+                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${selectedError.highestSev === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-risk-critical/20 dark:text-risk-critical' : selectedError.highestSev === 'High' ? 'bg-orange-100 text-orange-700 dark:bg-risk-high/20 dark:text-risk-high' : 'bg-amber-100 text-amber-800 dark:bg-risk-medium/20 dark:text-risk-medium'}`}>
+                                  {selectedError.highestSev}
+                                </span>
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-surface-variant px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/10">
+                                  {selectedError.count} issue{selectedError.count > 1 ? 's' : ''} &bull; {selectedError.causePercentage}% total cause
+                                </span>
+                              </div>
+                              {selectedError.description && (
+                                <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">{selectedError.description}</p>
+                              )}
+                              {selectedError.lines && selectedError.lines.length > 0 && (
+                                <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-mono font-medium">
+                                  Affected: Line {selectedError.lines.join(', Line ')}
+                                </div>
+                              )}
+                              {selectedError.recommendation && (
+                                <div className="text-xs text-indigo-950 dark:text-indigo-200 mt-1.5 font-medium bg-white dark:bg-indigo-900/30 p-2.5 rounded-lg border border-indigo-200 dark:border-indigo-800/40 leading-relaxed">
+                                  <strong className="text-indigo-700 dark:text-indigo-300">Actionable Remediation:</strong> {selectedError.recommendation}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setSelectedError(null)}
+                              className="text-slate-500 hover:text-slate-800 dark:hover:text-white p-1 rounded-lg hover:bg-white/80 dark:hover:bg-white/10 transition-all text-xs font-bold"
+                              title="Close details"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-center text-xs text-slate-500 dark:text-outline-variant py-1 font-medium">
+                          <span>👆 Click any bar above to inspect full defect details, affected lines, and actionable remediation.</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-500 dark:text-outline-variant py-10">
@@ -1488,11 +1571,11 @@ export default function App() {
               {/* Error Types & Cause Impact Dashboard Graph */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-section-gap">
                 {/* Error Types & Cause Pie Chart */}
-                <div className="glass-panel rounded-xl p-stack-lg flex flex-col items-center justify-between lg:col-span-5 relative">
+                <div className="glass-panel rounded-xl p-stack-lg flex flex-col items-center justify-between lg:col-span-5 relative bg-white dark:bg-surface/70 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none">
                   <div className="w-full flex items-center justify-between mb-2">
                     <div>
-                      <h3 className="font-label-caps text-label-caps text-slate-700 dark:text-outline uppercase tracking-widest font-bold text-xs">Error Types & Causes</h3>
-                      <p className="text-xs text-slate-500 dark:text-on-surface-variant mt-0.5">Distribution of error types and the amount of cause they contribute</p>
+                      <h3 className="font-label-caps text-label-caps text-slate-800 dark:text-outline uppercase tracking-widest font-bold text-xs">Error Types & Causes</h3>
+                      <p className="text-xs text-slate-600 dark:text-on-surface-variant mt-0.5">Distribution of error types and the amount of cause they contribute</p>
                     </div>
                     <span className="material-symbols-outlined text-indigo-600 dark:text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>pie_chart</span>
                   </div>
@@ -1500,7 +1583,7 @@ export default function App() {
                   {errorTypesData.length > 0 ? (
                     <div className="w-full flex flex-col items-center">
                       <div style={{ width: '100%', height: 210 }}>
-                        <ResponsiveContainer>
+                        <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
                               data={errorTypesData}
@@ -1510,7 +1593,8 @@ export default function App() {
                               outerRadius={78}
                               paddingAngle={4}
                               dataKey="impactScore"
-                              stroke="none"
+                              stroke={theme === 'light' ? '#ffffff' : '#13131b'}
+                              strokeWidth={2}
                             >
                               {errorTypesData.map((entry, index) => (
                                 <Cell key={`error-cell-${index}`} fill={entry.fill} />
@@ -1524,7 +1608,7 @@ export default function App() {
                                     <div className="bg-slate-900/95 dark:bg-surface-dim/95 backdrop-blur-md p-3 rounded-xl border border-slate-700 dark:border-white/15 shadow-xl text-xs max-w-xs text-white">
                                       <div className="font-bold text-white mb-1 flex items-center gap-1.5">
                                         <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: data.fill }}></span>
-                                        {data.name}
+                                        {data.fullName || data.name}
                                       </div>
                                       <div className="text-slate-300 dark:text-on-surface-variant flex justify-between gap-4 my-0.5">
                                         <span>Occurrences:</span>
@@ -1550,11 +1634,19 @@ export default function App() {
                       
                       <div className="flex flex-wrap gap-2 justify-center mt-2 max-w-sm">
                         {errorTypesData.map((item, i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-on-surface-variant bg-slate-100 dark:bg-surface-dim/70 px-2.5 py-1 rounded-full border border-slate-200 dark:border-white/5">
+                          <button
+                            key={i}
+                            onClick={() => setSelectedError(selectedError?.name === item.name ? null : item)}
+                            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-all ${
+                              selectedError?.name === item.name
+                                ? 'bg-indigo-100 border-indigo-500 text-indigo-900 ring-2 ring-indigo-500/20 font-bold'
+                                : 'bg-slate-100 dark:bg-surface-dim/70 border-slate-200 dark:border-white/5 text-slate-700 dark:text-on-surface-variant hover:border-indigo-300'
+                            }`}
+                          >
                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.fill }}></span>
                             <span className="font-semibold text-slate-800 dark:text-on-surface truncate max-w-[130px]">{item.name}</span>
                             <span className="text-slate-500 dark:text-outline font-bold">({item.causePercentage}%)</span>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -1568,20 +1660,28 @@ export default function App() {
                 </div>
 
                 {/* Detailed Error Types & Cause Impact Breakdown Panel */}
-                <div className="glass-panel rounded-xl p-stack-lg flex flex-col justify-between lg:col-span-7 relative">
+                <div className="glass-panel rounded-xl p-stack-lg flex flex-col justify-between lg:col-span-7 relative bg-white dark:bg-surface/70 border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none">
                   <div className="mb-4">
-                    <h3 className="font-label-caps text-label-caps text-slate-700 dark:text-outline uppercase tracking-widest font-bold text-xs">Cause Impact & Defect Breakdown</h3>
-                    <p className="text-xs text-slate-500 dark:text-on-surface-variant">Breakdown of specific defect classifications and the amount of cause they are causing</p>
+                    <h3 className="font-label-caps text-label-caps text-slate-800 dark:text-outline uppercase tracking-widest font-bold text-xs">Cause Impact & Defect Breakdown</h3>
+                    <p className="text-xs text-slate-600 dark:text-on-surface-variant">Breakdown of specific defect classifications and the amount of cause they are causing</p>
                   </div>
 
                   {errorTypesData.length > 0 ? (
                     <div className="space-y-3.5 overflow-y-auto max-h-[300px] pr-1">
                       {errorTypesData.map((item, i) => (
-                        <div key={i} className="bg-slate-50 dark:bg-surface-dim/70 rounded-xl p-3 border border-slate-200 dark:border-white/5 hover:border-indigo-300 dark:hover:border-white/15 transition-all shadow-sm dark:shadow-none">
+                        <div
+                          key={i}
+                          onClick={() => setSelectedError(selectedError?.name === item.name ? null : item)}
+                          className={`rounded-xl p-3 border cursor-pointer transition-all ${
+                            selectedError?.name === item.name
+                              ? 'bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-400 ring-2 ring-indigo-400/20'
+                              : 'bg-slate-50 dark:bg-surface-dim/70 border-slate-200 dark:border-white/5 hover:border-indigo-300 dark:hover:border-white/15'
+                          } shadow-sm dark:shadow-none`}
+                        >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.fill }}></span>
-                              <span className="font-bold text-sm text-slate-900 dark:text-on-surface">{item.name}</span>
+                              <span className="font-bold text-sm text-slate-900 dark:text-on-surface">{item.fullName || item.name}</span>
                               <span className="bg-slate-200 dark:bg-surface-variant text-slate-700 dark:text-on-surface-variant text-[11px] font-bold px-2 py-0.5 rounded-full">{item.count} issue{item.count > 1 ? 's' : ''}</span>
                             </div>
                             <div className="flex items-center gap-2">

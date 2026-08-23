@@ -45,9 +45,10 @@ html:not(.dark), html.light {
   }
 
   html:not(.dark) .glass-panel, html.light .glass-panel {
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
   }
 
   .glass-panel-interactive:hover {
