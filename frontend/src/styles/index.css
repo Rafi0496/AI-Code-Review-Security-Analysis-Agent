@@ -2,22 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-main: #0d0d15;
+  --text-main: #e4e1ed;
+  --surface-main: #13131b;
+  --surface-low: #1b1b23;
+  --surface-lowest: #0d0d15;
+  --surface-card: rgba(19, 19, 27, 0.75);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-muted: #908fa0;
+}
+
+html:not(.dark), html.light {
+  --bg-main: #f4f6fb;
+  --text-main: #0f172a;
+  --surface-main: #ffffff;
+  --surface-low: #f8fafc;
+  --surface-lowest: #f1f5f9;
+  --surface-card: rgba(255, 255, 255, 0.9);
+  --border-color: rgba(0, 0, 0, 0.08);
+  --text-muted: #64748b;
+}
+
 @layer base {
   body {
-    @apply bg-background text-on-background font-body-md antialiased overflow-x-hidden min-h-screen flex flex-col;
+    @apply bg-background text-on-background font-body-md antialiased overflow-x-hidden min-h-screen flex flex-col transition-colors duration-200;
+  }
+
+  html:not(.dark) body, html.light body {
+    background-color: #f4f6fb;
+    color: #0f172a;
   }
 }
 
 @layer components {
   .glass-panel {
-    background: rgba(19, 19, 27, 0.7);
+    background: rgba(19, 19, 27, 0.75);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
+
+  html:not(.dark) .glass-panel, html.light .glass-panel {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  }
+
   .glass-panel-interactive:hover {
     background: rgba(19, 19, 27, 0.85);
     border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  html:not(.dark) .glass-panel-interactive:hover, html.light .glass-panel-interactive:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow: 0 10px 25px -3px rgba(99, 102, 241, 0.12);
   }
 
   .code-line-highlight-critical {
@@ -31,7 +72,107 @@
   }
 }
 
-/* Custom scrollbar for code block */
+/* Light mode overrides for Tailwind utility classes */
+html:not(.dark) .bg-surface\/70, html.light .bg-surface\/70 {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html:not(.dark) .bg-surface-container-low, html.light .bg-surface-container-low {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .bg-surface-container-low\/80, html.light .bg-surface-container-low\/80 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html:not(.dark) .bg-surface-container-lowest, html.light .bg-surface-container-lowest {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .bg-surface-dim, html.light .bg-surface-dim {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .bg-surface-variant, html.light .bg-surface-variant {
+  background-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .text-on-surface, html.light .text-on-surface {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-on-background, html.light .text-on-background {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-on-surface-variant, html.light .text-on-surface-variant {
+  color: #475569 !important;
+}
+
+html:not(.dark) .text-outline-variant, html.light .text-outline-variant {
+  color: #64748b !important;
+}
+
+html:not(.dark) .border-white\/5, html:not(.dark) .border-white\/10, html:not(.dark) .border-white\/20,
+html.light .border-white\/5, html.light .border-white\/10, html.light .border-white\/20 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html:not(.dark) header, html.light header {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Light mode Code Editor adjustments */
+html:not(.dark) .code-editor-wrapper, html.light .code-editor-wrapper {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .code-editor-gutter, html.light .code-editor-gutter {
+  background-color: #f8fafc !important;
+  color: #94a3b8 !important;
+  border-right-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .code-editor-main, html.light .code-editor-main {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .syntax-highlight-layer, html.light .syntax-highlight-layer {
+  color: #1e293b;
+}
+
+html:not(.dark) .syntax-highlight-layer .token.keyword, html.light .syntax-highlight-layer .token.keyword {
+  color: #7c3aed;
+}
+
+html:not(.dark) .syntax-highlight-layer .token.string, html.light .syntax-highlight-layer .token.string {
+  color: #15803d;
+}
+
+html:not(.dark) .syntax-highlight-layer .token.function, html.light .syntax-highlight-layer .token.function {
+  color: #2563eb;
+}
+
+html:not(.dark) .syntax-highlight-layer .token.comment, html.light .syntax-highlight-layer .token.comment {
+  color: #64748b;
+}
+
+html:not(.dark) .syntax-highlight-layer .token.number, html.light .syntax-highlight-layer .token.number {
+  color: #d97706;
+}
+
+html:not(.dark) .code-editor-textarea::placeholder, html.light .code-editor-textarea::placeholder {
+  color: #94a3b8;
+}
+
+html:not(.dark) .code-viewer-container, html.light .code-viewer-container {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -39,15 +180,24 @@
 ::-webkit-scrollbar-track {
   background: rgba(19, 19, 27, 0.5);
 }
+html:not(.dark) ::-webkit-scrollbar-track, html.light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
 }
+html:not(.dark) ::-webkit-scrollbar-thumb, html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+html:not(.dark) ::-webkit-scrollbar-thumb:hover, html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
 
-/* Spin animation for loading state */
+/* Spin animation */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -61,7 +211,37 @@
   animation: spin 1s linear infinite;
 }
 
-/* ── Code Editor Syntax Highlighting (Dark IDE Theme) ── */
+html:not(.dark) .spin, html.light .spin {
+  border-color: rgba(0, 0, 0, 0.15);
+  border-top-color: currentColor;
+}
+
+/* Theme intimation animations */
+@keyframes tooltipFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-tooltip-in {
+  animation: tooltipFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-tooltip-float {
+  animation: tooltipFloat 2s ease-in-out infinite;
+}
+
+/* Code Editor font & tokens */
 .code-editor-font {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 13.5px;
@@ -141,4 +321,5 @@
   color: #5c6370;
   font-style: italic;
 }
+
 
