@@ -1109,6 +1109,14 @@ export default function App() {
     }
   }
 
+  const startNewAnalysis = () => {
+    setActiveTab('scanner')
+    setMode('paste')
+    setCode('')
+    setFile(null)
+    setSelectedError(null)
+  }
+
   // History item actions
   const viewHistoricalScan = (hItem) => {
     const reconstructedResult = {
@@ -1367,24 +1375,26 @@ export default function App() {
           <nav className="flex items-center gap-2 md:gap-stack-lg ml-2 md:ml-stack-lg">
             <button onClick={() => setActiveTab('scanner')} className={`${activeTab === 'scanner' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Scanner</button>
             <button onClick={() => setActiveTab('results')} disabled={!result} className={`${activeTab === 'results' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : 'hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Results</button>
-            <button onClick={() => setActiveTab('history')} className={`${activeTab === 'history' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base flex items-center gap-1.5`}>
-              <span>History</span>
-              {history.length > 0 && (
-                <span className="text-[11px] font-bold px-1.5 py-0.2 bg-indigo-100 dark:bg-primary/20 text-indigo-700 dark:text-primary rounded-full">
-                  {history.length}
-                </span>
-              )}
-            </button>
+            <button onClick={() => setActiveTab('history')} className={`${activeTab === 'history' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>History</button>
             <button onClick={() => setActiveTab('agents')} className={`${activeTab === 'agents' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Agents Pipeline</button>
           </nav>
         </div>
 
-        {/* Modes Switching Container with Entrance Intimation */}
-        <div className="relative flex items-center">
+        {/* Right side Header: New Analysis + Modes Switching Container */}
+        <div className="relative flex items-center gap-3">
+          <button
+            onClick={startNewAnalysis}
+            className="flex items-center gap-1.5 px-3 md:px-3.5 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-bold bg-indigo-600 dark:bg-primary text-white dark:text-on-primary hover:bg-indigo-700 dark:hover:brightness-110 active:scale-95 transition-all shadow-md"
+            title="Start a new code scan"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>add_circle</span>
+            <span className="inline">New Analysis</span>
+          </button>
+
           <div className="flex items-center bg-slate-200/90 dark:bg-surface-variant/80 border border-slate-300 dark:border-white/10 rounded-xl p-1 shadow-inner dark:shadow-sm backdrop-blur-md">
             <button
               onClick={() => toggleTheme('light')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 theme === 'light'
                   ? 'bg-white text-indigo-950 shadow-md ring-1 ring-black/5'
                   : 'text-slate-600 dark:text-outline-variant hover:text-slate-900 dark:hover:text-on-surface'
@@ -1397,7 +1407,7 @@ export default function App() {
 
             <button
               onClick={() => toggleTheme('dark')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 theme === 'dark'
                   ? 'bg-indigo-600 dark:bg-primary text-white dark:text-on-primary shadow-md'
                   : 'text-slate-600 dark:text-outline-variant hover:text-slate-900 dark:hover:text-on-surface'
@@ -1449,16 +1459,9 @@ export default function App() {
               <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
               <span className="font-body-md text-body-md">Vulnerabilities</span>
             </button>
-            <button onClick={() => setActiveTab('history')} className={`w-full text-left flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'history' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'}`}>
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined">history</span>
-                <span className="font-body-md text-body-md">History & Reports</span>
-              </div>
-              {history.length > 0 && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-200/70 dark:bg-primary/20 text-indigo-900 dark:text-primary">
-                  {history.length}
-                </span>
-              )}
+            <button onClick={() => setActiveTab('history')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'history' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'}`}>
+              <span className="material-symbols-outlined">history</span>
+              <span className="font-body-md text-body-md">History & Reports</span>
             </button>
             <button onClick={() => setActiveTab('agents')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'agents' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'}`}>
               <span className="material-symbols-outlined">hub</span>
@@ -1473,6 +1476,7 @@ export default function App() {
               <div className="mb-section-gap">
                 <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">Agents Pipeline</h1>
                 <p className="text-on-surface-variant">Visualize the multi-agent system executing parallel tasks and analyzing code structure.</p>
+              </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
                   {/* Code Analysis Agent */}
@@ -1668,7 +1672,6 @@ export default function App() {
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           {activeTab === 'scanner' && (
@@ -2085,18 +2088,20 @@ export default function App() {
                   <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2 text-slate-900 dark:text-on-surface font-black">Analysis Results</h1>
                   <p className="text-slate-600 dark:text-on-surface-variant font-medium">Reviewing <span className="font-code-sm text-code-sm text-indigo-700 dark:text-primary font-bold">{result._filename || (mode === 'file' ? file?.name || 'Uploaded File' : generateCodeTitle(result._submittedCode, result._submittedLanguage))}</span></p>
                 </div>
-                {prReport && (
-                  <button 
-                    onClick={() => downloadPDF(prReport, fixedCode, result._submittedCode, result._submittedLanguage, result.findings)}
-                    className="bg-indigo-600 dark:bg-surface-variant text-white dark:text-on-surface px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 hover:bg-indigo-700 dark:hover:brightness-110 active:scale-95 transition-all duration-200 border border-indigo-700 dark:border-white/10 shadow-md"
-                  >
-                    <span className="material-symbols-outlined text-lg">download</span>
-                    Download PR Summary (PDF)
-                  </button>
-                )}
-                {!prReport && prLoading && (
-                  <span className="text-slate-600 dark:text-outline-variant text-sm flex items-center gap-2 font-medium"><span className="spin" style={{width: 14, height: 14}}></span> Generating PR Summary...</span>
-                )}
+                <div>
+                  {prReport && (
+                    <button 
+                      onClick={() => downloadPDF(prReport, fixedCode, result._submittedCode, result._submittedLanguage, result.findings)}
+                      className="bg-slate-800 dark:bg-surface-variant text-white dark:text-on-surface px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 hover:bg-slate-700 dark:hover:brightness-110 active:scale-95 transition-all duration-200 border border-slate-700 dark:border-white/10 shadow-md"
+                    >
+                      <span className="material-symbols-outlined text-lg">download</span>
+                      Download PR Summary (PDF)
+                    </button>
+                  )}
+                  {!prReport && prLoading && (
+                    <span className="text-slate-600 dark:text-outline-variant text-sm flex items-center gap-2 font-medium"><span className="spin" style={{width: 14, height: 14}}></span> Generating PR Summary...</span>
+                  )}
+                </div>
               </div>
 
               {/* Error Analytics & Code Health Dashboard (Replaces Severity-Only Dashboard) */}
