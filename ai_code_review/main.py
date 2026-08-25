@@ -179,6 +179,18 @@ def chatbot_generate(prompt: str, system_prompt: str = "") -> str:
     key = os.getenv("GROQ_API_KEY") or os.getenv("CHATBOT_API_KEY") or os.getenv("GEMINI_API_KEY")
     return universal_generate(prompt, key, system_prompt)
 
+def calculate_code_health_score(sev: dict) -> int:
+    """Compute calibrated code health score from 5 to 100 based on defect severity penalty curve."""
+    crit = sev.get("Critical", 0)
+    high = sev.get("High", 0)
+    med = sev.get("Medium", 0)
+    low = sev.get("Low", 0)
+    penalty = (crit * 18) + (high * 9) + (med * 4) + (low * 1)
+    if penalty == 0:
+        return 100
+    decay = 100.0 / (1.0 + (penalty / 45.0) ** 0.9)
+    return int(max(5, min(98, round(decay))))
+
 @app.post("/analyze/text")
 async def analyze_text(req: AnalyzeTextRequest):
     try:
@@ -192,10 +204,11 @@ async def analyze_text(req: AnalyzeTextRequest):
         sev = {"Critical":0,"High":0,"Medium":0,"Low":0}
         for f in unique: sev[f.get("severity","Low")] = sev.get(f.get("severity","Low"),0)+1
         risk = "Critical" if sev["Critical"]>0 else "High" if sev["High"]>0 else "Medium" if sev["Medium"]>0 else "Low"
+        score = calculate_code_health_score(sev)
         return {
             "submission": {"language": req.language, "lines": len(req.code.splitlines()), "source": "paste"},
             "execution_time_seconds": 3.5,
-            "summary": {"total_findings": len(unique), "severity_breakdown": sev, "risk_level": risk},
+            "summary": {"total_findings": len(unique), "severity_breakdown": sev, "risk_level": risk, "code_health_score": score},
             "pr_summary": {"title": "Generating...", "executive_summary": "", "estimated_fix_time": "Unknown"},
             "findings": unique
         }
@@ -258,7 +271,7 @@ async def pr_summary_endpoint(req: PRSummaryRequest):
     result = req.analysis_result
     findings = result.get("findings", [])
     sev = result.get("summary", {}).get("severity_breakdown", {"Critical":0, "High":0, "Medium":0, "Low":0})
-    score = max(0, 100 - (sev.get("Critical",0)*20 + sev.get("High",0)*10 + sev.get("Medium",0)*5 + sev.get("Low",0)*2))
+    score = calculate_code_health_score(sev)
     prioritized = sorted(findings, key=lambda x: ["Critical","High","Medium","Low"].index(x.get("severity", "Low")))
     
     # Build detailed findings list with error and fix details for the report

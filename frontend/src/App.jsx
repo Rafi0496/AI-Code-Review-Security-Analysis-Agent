@@ -303,6 +303,120 @@ def process(a, b, c, d, e, f, g):
     pass
 `
 
+function calculateHealthScore(breakdown = {}) {
+  const crit = breakdown.Critical || 0
+  const high = breakdown.High || 0
+  const med = breakdown.Medium || 0
+  const low = breakdown.Low || 0
+  const penalty = (crit * 18) + (high * 9) + (med * 4) + (low * 1)
+  if (penalty === 0) return 100
+  const decay = 100 / (1 + Math.pow(penalty / 45, 0.9))
+  return Math.max(5, Math.min(98, Math.round(decay)))
+}
+
+function generateCodeTitle(code, language = 'python', filename = '') {
+  if (filename && filename !== 'uploaded_code' && filename !== 'paste_buffer' && filename.trim() !== '') {
+    return filename.trim()
+  }
+  if (!code || !code.trim()) return 'Untitled Code Snippet'
+
+  const lines = code.split('\n').map(l => l.trim()).filter(Boolean)
+  
+  // 1. Check for leading comments or title docstrings
+  for (let i = 0; i < Math.min(lines.length, 5); i++) {
+    const l = lines[i]
+    if (l.startsWith('//') || l.startsWith('#') || l.startsWith('/*') || l.startsWith('*')) {
+      const cleaned = l.replace(/^(\/\/|#|\/\*|\*)\s*/, '').replace(/\*\/$/, '').trim()
+      if (cleaned.length >= 4 && cleaned.length <= 60 && !cleaned.toLowerCase().startsWith('todo') && !cleaned.toLowerCase().startsWith('fixme') && !cleaned.startsWith('!/usr/bin')) {
+        return cleaned
+      }
+    }
+  }
+
+  // 2. Check for Class definitions
+  const classMatch = code.match(/(?:export\s+)?(?:public\s+|private\s+|protected\s+)?class\s+([A-Za-z0-9_]+)/)
+  if (classMatch && classMatch[1]) {
+    return `Class ${classMatch[1]}`
+  }
+
+  // 3. Check for API routes / decorators
+  const routeMatch = code.match(/@(?:app|router)\.(?:get|post|put|delete|patch)\s*\(\s*["']([^"']+)["']/i) || code.match(/(?:app|router)\.(?:get|post|put|delete|patch)\s*\(\s*["']([^"']+)["']/i)
+  if (routeMatch && routeMatch[1]) {
+    return `Route ${routeMatch[1]}`
+  }
+
+  // 4. Check for Main / primary functions
+  const funcMatch = code.match(/(?:async\s+def|def|function|const|let)\s+([A-Za-z0-9_]+)\s*(?:=\s*(?:async\s*)?\([^)]*\)\s*=>|\()/i)
+  if (funcMatch && funcMatch[1] && !['main', 'test', 'init', '__init__'].includes(funcMatch[1].toLowerCase())) {
+    return `${funcMatch[1]}()`
+  }
+
+  // 5. Check for SQL Table or Query
+  if ((language || '').toLowerCase() === 'sql' || /CREATE\s+TABLE|SELECT\s+/i.test(code)) {
+    const tableMatch = code.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_]+)/i) || code.match(/FROM\s+([A-Za-z0-9_]+)/i)
+    if (tableMatch && tableMatch[1]) {
+      return `SQL Query: ${tableMatch[1]}`
+    }
+    return `SQL Database Script`
+  }
+
+  // 6. Descriptive fallback
+  const firstMeaningful = lines.find(l => !l.startsWith('//') && !l.startsWith('#') && !l.startsWith('import ') && !l.startsWith('from '))
+  if (firstMeaningful && firstMeaningful.length <= 40) {
+    return `${firstMeaningful.slice(0, 35)} (${formatLanguageDisplay(language)})`
+  }
+
+  const lineCount = lines.length
+  return `${formatLanguageDisplay(language)} Script (${lineCount} line${lineCount !== 1 ? 's' : ''})`
+}
+
+function generateMarkdownReport(item) {
+  const findings = item.findings || []
+  const sev = item.summary?.severity_breakdown || {}
+  const pr = item.prReport || {}
+  
+  let md = `# Aegis AI — Code Security & Health Analysis Report\n\n`
+  md += `**Target:** ${item.title || 'Code Review'}  \n`
+  md += `**Language:** ${formatLanguageDisplay(item.language)}  \n`
+  md += `**Scan Timestamp:** ${item.formattedTime || new Date(item.timestamp).toLocaleString()}  \n`
+  md += `**Code Health Score:** ${item.healthScore ?? '—'}/100  \n`
+  md += `**Risk Level:** ${item.summary?.risk_level || 'Unknown'}  \n`
+  md += `**Estimated Remediation:** ${pr.estimated_fix_time || '15 mins'}  \n\n`
+  
+  md += `## 1. Executive Summary\n`
+  md += `${pr.executive_overview || `Multi-agent static and dynamic analysis detected ${findings.length} issue(s) across the submitted codebase.`}\n\n`
+  
+  md += `## 2. Vulnerability Breakdown\n`
+  md += `- **Critical (Blockers):** ${sev.Critical || 0}\n`
+  md += `- **High:** ${sev.High || 0}\n`
+  md += `- **Medium:** ${sev.Medium || 0}\n`
+  md += `- **Low:** ${sev.Low || 0}\n\n`
+  
+  if (findings.length > 0) {
+    md += `## 3. Key Findings & Remediation Steps\n`
+    findings.forEach((f, idx) => {
+      md += `### ${idx + 1}. [${(f.severity || 'Medium').toUpperCase()}] ${f.type || 'Issue'} (Line ${f.line || 'N/A'})\n`
+      md += `- **Description:** ${f.description || 'No description provided'}\n`
+      md += `- **Recommendation:** ${f.recommendation || f.fix_summary || 'Review and remediate according to OWASP / security best practices'}\n`
+      if (f.before_code) {
+        md += `\`\`\`${item.language || 'text'}\n// Vulnerable (Line ${f.line || 'N/A'})\n${f.before_code}\n\`\`\`\n`
+      }
+      if (f.after_code) {
+        md += `\`\`\`${item.language || 'text'}\n// Secured Remediation\n${f.after_code}\n\`\`\`\n`
+      }
+      md += `\n`
+    })
+  }
+  
+  if (item.fixedCode) {
+    md += `## 4. Full Remediated Source Code\n`
+    md += `\`\`\`${item.language || 'python'}\n${item.fixedCode}\n\`\`\`\n\n`
+  }
+  
+  md += `---\n*Generated by Aegis AI Multi-Agent Security Engine.*\n`
+  return md
+}
+
 function downloadPDF(prData, fullFixedCode, submittedCode, language = 'python', findingsList = []) {
   const formattedLang = formatLanguageDisplay(language)
   const allFindings = findingsList && findingsList.length > 0 
@@ -505,10 +619,10 @@ function downloadPDF(prData, fullFixedCode, submittedCode, language = 'python', 
 </head><body>
 <div class="report-header">
   <div class="header-content">
-    <h1 class="main-heading">Report of Uploaded ${formattedLang} Code</h1>
+    <h1 class="main-heading">Aegis AI Security Analysis & PR Report</h1>
     <div class="meta">
       <strong>Generated:</strong> ${new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })} &bull; 
-      <strong>System:</strong> AI Multi-Agent Code Inspector &bull; 
+      <strong>System:</strong> Aegis AI Multi-Agent Security Engine &bull; 
       <strong>Target Language:</strong> ${formattedLang}
     </div>
   </div>
@@ -569,7 +683,7 @@ ${prData.positive_observations?.length > 0 ? `
 </ul>` : ''}
 
 <div class="footer">
-  <span>AI Code Review & Security Analysis Agent</span>
+  <span>Aegis AI — Code Security & Health Analysis Platform</span>
   <span>Automated Multi-Agent Verification Audit</span>
 </div>
 
@@ -746,7 +860,6 @@ const ChatWidget = ({ currentCode, currentFindings }) => {
 }
 
 export default function App() {
-
   const [activeTab, setActiveTab] = useState('scanner')
   const [code, setCode] = useState('')
   const [file, setFile] = useState(null)
@@ -755,6 +868,24 @@ export default function App() {
   const [analyzing, setAnalyzing] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef()
+
+  // History State with localStorage persistence
+  const [history, setHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aegis_ai_history_v1')
+      if (saved) return JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to load history', e)
+    }
+    return []
+  })
+  const [currentScanId, setCurrentScanId] = useState(null)
+  const [historySearch, setHistorySearch] = useState('')
+  const [historyLangFilter, setHistoryLangFilter] = useState('All')
+  const [historyRiskFilter, setHistoryRiskFilter] = useState('All')
+  const [historySort, setHistorySort] = useState('newest')
+  const [copiedHistoryId, setCopiedHistoryId] = useState(null)
+  const [copiedCodeId, setCopiedCodeId] = useState(null)
 
   // Light / Dark Theme State with persistence
   const [theme, setTheme] = useState(() => {
@@ -833,15 +964,54 @@ export default function App() {
 
     try {
       let res
+      let fileText = ''
       if (mode === 'file') {
+        fileText = await file.text()
         res = await api.analyzeFile(file)
+        res.submission = res.submission || {}
+        res.submission.filename = file.name
       } else {
         const detectedLang = detectLanguage(code)
         res = await api.analyzeText(code, detectedLang)
       }
 
-      res._submittedCode = mode === 'file' ? '' : code
-      res._submittedLanguage = res.submission?.language || detectLanguage(code)
+      const submittedCode = mode === 'file' ? fileText : code
+      const submittedLang = res.submission?.language || detectLanguage(submittedCode)
+      const filename = mode === 'file' ? file.name : ''
+      res._submittedCode = submittedCode
+      res._submittedLanguage = submittedLang
+      res._filename = filename
+
+      const score = res.summary?.code_health_score ?? calculateHealthScore(res.summary?.severity_breakdown)
+      const codeTitle = generateCodeTitle(submittedCode, submittedLang, filename)
+      const newScanId = 'scan_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)
+
+      const newHistoryItem = {
+        id: newScanId,
+        timestamp: new Date().toISOString(),
+        formattedTime: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        title: codeTitle,
+        filename: filename || '',
+        language: submittedLang,
+        code: submittedCode,
+        healthScore: score,
+        summary: res.summary || {},
+        findings: res.findings || [],
+        prReport: null,
+        fixedCode: null,
+      }
+
+      setHistory(prev => {
+        const updated = [newHistoryItem, ...prev.filter(item => item.id !== newScanId)]
+        try {
+          localStorage.setItem('aegis_ai_history_v1', JSON.stringify(updated.slice(0, 100)))
+        } catch (e) {
+          console.error('Failed to persist history', e)
+        }
+        return updated
+      })
+      setCurrentScanId(newScanId)
+
       setResult(res)
       setActiveTab('results')
     } catch (err) {
@@ -860,10 +1030,30 @@ export default function App() {
       try {
         const data = await api.prSummary(
           result,
-          result.submission?.filename || 'uploaded_code',
-          result.submission?.language || 'python'
+          result._filename || result.submission?.filename || 'uploaded_code',
+          result._submittedLanguage || result.submission?.language || 'python'
         )
         setPrReport(data)
+
+        // Update history item with prReport and health score
+        if (currentScanId) {
+          setHistory(prev => {
+            const updated = prev.map(item => {
+              if (item.id === currentScanId) {
+                return {
+                  ...item,
+                  prReport: data,
+                  healthScore: data.code_health_score ?? item.healthScore
+                }
+              }
+              return item
+            })
+            try {
+              localStorage.setItem('aegis_ai_history_v1', JSON.stringify(updated))
+            } catch (e) {}
+            return updated
+          })
+        }
       } catch (e) {
         console.error(e)
       } finally {
@@ -893,6 +1083,20 @@ export default function App() {
       const res = await api.fixAll(result._submittedCode, result._submittedLanguage, result.findings)
       if (res.status === 'success') {
         setFixedCode(res.fixed_code)
+        if (currentScanId) {
+          setHistory(prev => {
+            const updated = prev.map(item => {
+              if (item.id === currentScanId) {
+                return { ...item, fixedCode: res.fixed_code }
+              }
+              return item
+            })
+            try {
+              localStorage.setItem('aegis_ai_history_v1', JSON.stringify(updated))
+            } catch (e) {}
+            return updated
+          })
+        }
       } else {
         alert("Failed to fix code: " + res.message)
         setShowFixedCode(false)
@@ -905,12 +1109,148 @@ export default function App() {
     }
   }
 
+  // History item actions
+  const viewHistoricalScan = (hItem) => {
+    const reconstructedResult = {
+      submission: {
+        language: hItem.language,
+        lines: (hItem.code || '').split('\n').length,
+        source: hItem.filename ? 'file' : 'paste',
+        filename: hItem.filename || hItem.title
+      },
+      execution_time_seconds: 3.5,
+      summary: hItem.summary || {},
+      findings: hItem.findings || [],
+      _submittedCode: hItem.code || '',
+      _submittedLanguage: hItem.language || 'python',
+      _filename: hItem.filename || ''
+    }
+    setResult(reconstructedResult)
+    setCode(hItem.code || '')
+    setPrReport(hItem.prReport || null)
+    setFixedCode(hItem.fixedCode || null)
+    setShowFixedCode(!!hItem.fixedCode)
+    setCurrentScanId(hItem.id)
+    setActiveTab('results')
+  }
+
+  const copyHistoryReport = (hItem) => {
+    const markdown = generateMarkdownReport(hItem)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(markdown).then(() => {
+        setCopiedHistoryId(hItem.id)
+        setTimeout(() => setCopiedHistoryId(null), 2500)
+      })
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = markdown
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopiedHistoryId(hItem.id)
+      setTimeout(() => setCopiedHistoryId(null), 2500)
+    }
+  }
+
+  const copyHistoryCode = (hItem) => {
+    if (!hItem.code) return
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(hItem.code).then(() => {
+        setCopiedCodeId(hItem.id)
+        setTimeout(() => setCopiedCodeId(null), 2000)
+      })
+    }
+  }
+
+  const downloadHistoryJSON = (hItem) => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(hItem, null, 2))
+    const downloadAnchor = document.createElement('a')
+    downloadAnchor.setAttribute("href", dataStr)
+    downloadAnchor.setAttribute("download", `aegis-ai-${(hItem.title || 'scan').replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${Date.now()}.json`)
+    document.body.appendChild(downloadAnchor)
+    downloadAnchor.click()
+    downloadAnchor.remove()
+  }
+
+  const deleteHistoryItem = (id, e) => {
+    if (e) e.stopPropagation()
+    if (window.confirm("Are you sure you want to remove this scan from history?")) {
+      setHistory(prev => {
+        const updated = prev.filter(item => item.id !== id)
+        try {
+          localStorage.setItem('aegis_ai_history_v1', JSON.stringify(updated))
+        } catch (err) {}
+        return updated
+      })
+    }
+  }
+
+  const clearAllHistory = () => {
+    if (window.confirm("Are you sure you want to clear all analysis history? This action cannot be undone.")) {
+      setHistory([])
+      try {
+        localStorage.removeItem('aegis_ai_history_v1')
+      } catch (e) {}
+    }
+  }
+
+  const filteredHistory = useMemo(() => {
+    return history.filter(item => {
+      // Search term
+      if (historySearch.trim()) {
+        const query = historySearch.toLowerCase()
+        const titleMatch = (item.title || '').toLowerCase().includes(query)
+        const langMatch = (item.language || '').toLowerCase().includes(query)
+        const codeMatch = (item.code || '').toLowerCase().includes(query)
+        const findingsMatch = (item.findings || []).some(f => 
+          (f.type || '').toLowerCase().includes(query) || 
+          (f.description || '').toLowerCase().includes(query)
+        )
+        if (!titleMatch && !langMatch && !codeMatch && !findingsMatch) return false
+      }
+      // Language filter
+      if (historyLangFilter !== 'All') {
+        const itemLang = (item.language || '').toLowerCase()
+        if (itemLang !== historyLangFilter.toLowerCase()) return false
+      }
+      // Risk filter
+      if (historyRiskFilter !== 'All') {
+        const itemRisk = item.summary?.risk_level || 'Low'
+        if (itemRisk.toLowerCase() !== historyRiskFilter.toLowerCase()) return false
+      }
+      return true
+    }).sort((a, b) => {
+      if (historySort === 'newest') return new Date(b.timestamp || 0) - new Date(a.timestamp || 0)
+      if (historySort === 'oldest') return new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
+      if (historySort === 'score_low') return (a.healthScore ?? 100) - (b.healthScore ?? 100)
+      if (historySort === 'score_high') return (b.healthScore ?? 100) - (a.healthScore ?? 100)
+      if (historySort === 'defects') return (b.findings?.length || 0) - (a.findings?.length || 0)
+      return 0
+    })
+  }, [history, historySearch, historyLangFilter, historyRiskFilter, historySort])
+
+  const historyStats = useMemo(() => {
+    const totalScans = history.length
+    if (totalScans === 0) return { totalScans: 0, avgHealth: 0, totalCritical: 0, totalDefects: 0 }
+    const totalHealth = history.reduce((sum, item) => sum + (item.healthScore ?? 100), 0)
+    const avgHealth = Math.round(totalHealth / totalScans)
+    const totalCritical = history.reduce((sum, item) => sum + (item.summary?.severity_breakdown?.Critical || 0), 0)
+    const totalDefects = history.reduce((sum, item) => sum + (item.findings?.length || 0), 0)
+    return { totalScans, avgHealth, totalCritical, totalDefects }
+  }, [history])
+
+  const availableLanguages = useMemo(() => {
+    const set = new Set(history.map(item => item.language).filter(Boolean))
+    return ['All', ...Array.from(set)]
+  }, [history])
+
   const canRun = mode === 'paste' ? code.trim().length > 0 : !!file
 
   const findings = result?.findings || []
   const summary = result?.summary || {}
   const breakdown = summary.severity_breakdown || {}
-  const healthScore = prReport?.code_health_score ?? Math.max(0, 100 - ((breakdown.Critical ?? 0) * 20 + (breakdown.High ?? 0) * 10 + (breakdown.Medium ?? 0) * 5 + (breakdown.Low ?? 0) * 2))
+  const healthScore = prReport?.code_health_score ?? (result?.summary?.code_health_score ?? calculateHealthScore(breakdown))
   const filtered = filter === 'All' ? findings : findings.filter(f => f.severity === filter)
 
   const loadFix = async (e, idx, finding) => {
@@ -1022,11 +1362,19 @@ export default function App() {
         <div className="flex items-center gap-gutter">
           <a className="font-headline-md text-headline-md font-black tracking-tighter text-indigo-700 dark:text-primary flex items-center gap-2" href="#">
             <span className="material-symbols-outlined" style={{fontSize: '28px', fontVariationSettings: "'FILL' 1"}}>policy</span>
-            <span className="hidden sm:inline">AI Code Analyzer</span>
+            <span className="hidden sm:inline">Aegis AI</span>
           </a>
           <nav className="flex items-center gap-2 md:gap-stack-lg ml-2 md:ml-stack-lg">
             <button onClick={() => setActiveTab('scanner')} className={`${activeTab === 'scanner' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Scanner</button>
             <button onClick={() => setActiveTab('results')} disabled={!result} className={`${activeTab === 'results' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant'} ${!result ? 'opacity-50 cursor-not-allowed' : 'hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Results</button>
+            <button onClick={() => setActiveTab('history')} className={`${activeTab === 'history' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base flex items-center gap-1.5`}>
+              <span>History</span>
+              {history.length > 0 && (
+                <span className="text-[11px] font-bold px-1.5 py-0.2 bg-indigo-100 dark:bg-primary/20 text-indigo-700 dark:text-primary rounded-full">
+                  {history.length}
+                </span>
+              )}
+            </button>
             <button onClick={() => setActiveTab('agents')} className={`${activeTab === 'agents' ? 'text-indigo-700 dark:text-primary border-b-2 border-indigo-600 dark:border-primary pb-1 font-bold' : 'text-slate-700 dark:text-on-surface-variant hover:text-slate-950 dark:hover:text-on-surface hover:bg-indigo-50 dark:hover:bg-primary/10 font-medium'} px-2.5 md:px-3 py-1.5 md:py-2 rounded-md active:scale-95 transition-all duration-300 text-sm md:text-base`}>Agents Pipeline</button>
           </nav>
         </div>
@@ -1100,6 +1448,17 @@ export default function App() {
             <button onClick={() => { if(result) setActiveTab('results') }} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'results' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'} ${!result ? 'opacity-50 cursor-not-allowed' : ''}`}>
               <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
               <span className="font-body-md text-body-md">Vulnerabilities</span>
+            </button>
+            <button onClick={() => setActiveTab('history')} className={`w-full text-left flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'history' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'}`}>
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined">history</span>
+                <span className="font-body-md text-body-md">History & Reports</span>
+              </div>
+              {history.length > 0 && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-200/70 dark:bg-primary/20 text-indigo-900 dark:text-primary">
+                  {history.length}
+                </span>
+              )}
             </button>
             <button onClick={() => setActiveTab('agents')} className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ease-in-out ${activeTab === 'agents' ? 'bg-indigo-100/90 dark:bg-primary-container text-indigo-900 dark:text-on-primary-container font-bold border border-indigo-200/80 dark:border-transparent shadow-sm' : 'text-slate-600 dark:text-on-surface-variant hover:bg-slate-100 dark:hover:bg-surface-variant hover:text-slate-900 font-medium'}`}>
               <span className="material-symbols-outlined">hub</span>
@@ -1315,8 +1674,8 @@ export default function App() {
           {activeTab === 'scanner' && (
             <div>
               <div className="mb-section-gap">
-                <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">AI Code Analyzer</h1>
-                <p className="text-on-surface-variant">Submit your code for multi-agent security analysis and remediation.</p>
+                <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2">Aegis AI</h1>
+                <p className="text-on-surface-variant">Submit your code for multi-agent security analysis, vulnerability detection, and automated remediation.</p>
               </div>
 
               {/* Scanner Input Area */}
@@ -1378,13 +1737,353 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {activeTab === 'history' && (
+            <div>
+              <div className="mb-section-gap flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                <div>
+                  <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2 text-slate-900 dark:text-on-surface font-black">Analysis History & Reports</h1>
+                  <p className="text-slate-600 dark:text-on-surface-variant font-medium">Review previous multi-agent security scans, inspect results, or copy and download audit reports.</p>
+                </div>
+                {history.length > 0 && (
+                  <button
+                    onClick={clearAllHistory}
+                    className="px-3.5 py-2 rounded-lg text-xs font-bold text-red-600 dark:text-rose-400 bg-red-50 dark:bg-rose-500/10 hover:bg-red-100 dark:hover:bg-rose-500/20 border border-red-200 dark:border-rose-500/20 transition-all flex items-center gap-1.5 active:scale-95"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete_sweep</span>
+                    Clear All History
+                  </button>
+                )}
+              </div>
+
+              {/* Metrics / Stats Banner */}
+              {history.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="glass-panel p-4 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-slate-500 dark:text-outline-variant font-bold uppercase tracking-wider">Total Scans</div>
+                      <div className="text-2xl font-black text-slate-900 dark:text-on-surface mt-1">{historyStats.totalScans}</div>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-primary flex items-center justify-center">
+                      <span className="material-symbols-outlined">history</span>
+                    </div>
+                  </div>
+
+                  <div className="glass-panel p-4 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-slate-500 dark:text-outline-variant font-bold uppercase tracking-wider">Avg Code Health</div>
+                      <div className={`text-2xl font-black mt-1 ${historyStats.avgHealth < 50 ? 'text-red-600 dark:text-error' : historyStats.avgHealth < 80 ? 'text-amber-600 dark:text-risk-medium' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {historyStats.avgHealth}<span className="text-xs text-slate-500 dark:text-outline-variant">/100</span>
+                      </div>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                      <span className="material-symbols-outlined">health_metrics</span>
+                    </div>
+                  </div>
+
+                  <div className="glass-panel p-4 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-slate-500 dark:text-outline-variant font-bold uppercase tracking-wider">Critical Blockers</div>
+                      <div className="text-2xl font-black text-red-600 dark:text-risk-critical mt-1">{historyStats.totalCritical}</div>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-risk-critical flex items-center justify-center">
+                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>gpp_bad</span>
+                    </div>
+                  </div>
+
+                  <div className="glass-panel p-4 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-slate-500 dark:text-outline-variant font-bold uppercase tracking-wider">Total Defects</div>
+                      <div className="text-2xl font-black text-slate-900 dark:text-on-surface mt-1">{historyStats.totalDefects}</div>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <span className="material-symbols-outlined">bug_report</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Search & Filter Controls */}
+              {history.length > 0 && (
+                <div className="glass-panel p-4 rounded-xl border border-slate-200 dark:border-white/10 mb-6 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                  {/* Search */}
+                  <div className="relative flex-1">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 dark:text-outline-variant text-lg">search</span>
+                    <input
+                      type="text"
+                      placeholder="Search history by code title, language, or findings..."
+                      value={historySearch}
+                      onChange={(e) => setHistorySearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 text-xs md:text-sm rounded-lg bg-slate-50 dark:bg-surface-container-low border border-slate-200 dark:border-white/10 text-slate-900 dark:text-on-surface placeholder-slate-400 dark:placeholder-outline-variant focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-primary"
+                    />
+                    {historySearch && (
+                      <button onClick={() => setHistorySearch('')} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs">
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filters */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Language filter */}
+                    <select
+                      value={historyLangFilter}
+                      onChange={(e) => setHistoryLangFilter(e.target.value)}
+                      className="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-50 dark:bg-surface-container-low border border-slate-200 dark:border-white/10 text-slate-700 dark:text-on-surface focus:outline-none"
+                    >
+                      <option value="All">All Languages</option>
+                      {availableLanguages.filter(l => l !== 'All').map(lang => (
+                        <option key={lang} value={lang}>{formatLanguageDisplay(lang)}</option>
+                      ))}
+                    </select>
+
+                    {/* Risk Level Filter */}
+                    <select
+                      value={historyRiskFilter}
+                      onChange={(e) => setHistoryRiskFilter(e.target.value)}
+                      className="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-50 dark:bg-surface-container-low border border-slate-200 dark:border-white/10 text-slate-700 dark:text-on-surface focus:outline-none"
+                    >
+                      <option value="All">All Risk Levels</option>
+                      <option value="Critical">Critical</option>
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+
+                    {/* Sort */}
+                    <select
+                      value={historySort}
+                      onChange={(e) => setHistorySort(e.target.value)}
+                      className="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-50 dark:bg-surface-container-low border border-slate-200 dark:border-white/10 text-slate-700 dark:text-on-surface focus:outline-none"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="oldest">Oldest First</option>
+                      <option value="score_low">Lowest Health Score</option>
+                      <option value="score_high">Highest Health Score</option>
+                      <option value="defects">Most Defects</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* History List or Empty State */}
+              {filteredHistory.length === 0 ? (
+                <div className="glass-panel rounded-2xl p-12 text-center border border-slate-200 dark:border-white/10 shadow-sm flex flex-col items-center justify-center">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-primary/10 text-indigo-600 dark:text-primary flex items-center justify-center mb-4">
+                    <span className="material-symbols-outlined" style={{ fontSize: '36px' }}>history_toggle_off</span>
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-on-surface mb-1">
+                    {history.length === 0 ? 'No Analysis History Yet' : 'No Matching Analyses Found'}
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-on-surface-variant max-w-md mb-6">
+                    {history.length === 0 
+                      ? 'When you run security and health analyses in the Scanner Engine, your past scans and generated reports will automatically be recorded here.' 
+                      : 'Try adjusting your search query or filter settings.'}
+                  </p>
+                  {history.length === 0 ? (
+                    <button
+                      onClick={() => setActiveTab('scanner')}
+                      className="bg-indigo-600 dark:bg-primary text-white dark:text-on-primary font-bold px-6 py-2.5 rounded-xl text-sm shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>search</span>
+                      Start a Code Scan
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setHistorySearch(''); setHistoryLangFilter('All'); setHistoryRiskFilter('All'); }}
+                      className="px-4 py-2 rounded-lg text-xs font-bold text-indigo-600 dark:text-primary bg-indigo-50 dark:bg-primary/10 hover:bg-indigo-100 transition-colors"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {filteredHistory.map((item) => {
+                    const itemHealth = item.healthScore ?? calculateHealthScore(item.summary?.severity_breakdown)
+                    const sev = item.summary?.severity_breakdown || {}
+                    const isCopied = copiedHistoryId === item.id
+                    const isCodeCopied = copiedCodeId === item.id
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="glass-panel rounded-xl p-5 border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-primary/40 transition-all duration-200 shadow-sm hover:shadow-md bg-white dark:bg-surface/80 flex flex-col justify-between group"
+                      >
+                        <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 pb-4 border-b border-slate-100 dark:border-white/5">
+                          {/* Left: Title, Tag, Timestamp */}
+                          <div className="flex items-start gap-3.5">
+                            <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-surface-variant text-indigo-600 dark:text-primary mt-0.5">
+                              <span className="material-symbols-outlined" style={{ fontSize: '22px' }}>
+                                {item.filename ? 'description' : 'code_blocks'}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center flex-wrap gap-2 mb-1">
+                                <h3 className="font-bold text-base text-slate-900 dark:text-on-surface group-hover:text-indigo-600 dark:group-hover:text-primary transition-colors">
+                                  {item.title}
+                                </h3>
+                                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-surface-variant text-slate-700 dark:text-on-surface-variant border border-slate-200 dark:border-white/5">
+                                  {formatLanguageDisplay(item.language)}
+                                </span>
+                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                                  item.summary?.risk_level === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-risk-critical/20 dark:text-risk-critical' :
+                                  item.summary?.risk_level === 'High' ? 'bg-orange-100 text-orange-800 dark:bg-risk-high/20 dark:text-risk-high' :
+                                  item.summary?.risk_level === 'Medium' ? 'bg-amber-100 text-amber-800 dark:bg-risk-medium/20 dark:text-risk-medium' :
+                                  'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-500'
+                                }`}>
+                                  {item.summary?.risk_level || 'Low'} Risk
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-outline-variant font-medium">
+                                <span className="flex items-center gap-1">
+                                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>schedule</span>
+                                  {item.formattedTime || new Date(item.timestamp).toLocaleString()}
+                                </span>
+                                {item.filename && (
+                                  <span className="flex items-center gap-1">
+                                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>folder_open</span>
+                                    {item.filename}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right: Health Score mini badge & defect counts */}
+                          <div className="flex items-center gap-4 self-start lg:self-center">
+                            <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-surface-container-low border border-slate-200 dark:border-white/5">
+                              <div className="text-right">
+                                <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-outline-variant tracking-wider">Health Score</div>
+                                <div className={`text-lg font-black ${itemHealth < 50 ? 'text-red-600 dark:text-error' : itemHealth < 80 ? 'text-amber-600 dark:text-risk-medium' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                  {itemHealth}<span className="text-xs text-slate-400 dark:text-outline-variant">/100</span>
+                                </div>
+                              </div>
+                              <div className={`w-3 h-3 rounded-full ${itemHealth < 50 ? 'bg-red-500 shadow-sm shadow-red-500/50' : itemHealth < 80 ? 'bg-amber-500 shadow-sm shadow-amber-500/50' : 'bg-emerald-500 shadow-sm shadow-emerald-500/50'}`}></div>
+                            </div>
+
+                            <button
+                              onClick={(e) => deleteHistoryItem(item.id, e)}
+                              className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Delete Scan Record"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Middle: Defects Summary Chips */}
+                        <div className="py-3 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-slate-600 dark:text-on-surface-variant font-semibold mr-1">
+                              Defects: <strong className="text-slate-900 dark:text-on-surface">{item.findings?.length || 0}</strong>
+                            </span>
+                            {sev.Critical > 0 && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-risk-critical/20 dark:text-risk-critical">
+                                {sev.Critical} Critical
+                              </span>
+                            )}
+                            {sev.High > 0 && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 dark:bg-risk-high/20 dark:text-risk-high">
+                                {sev.High} High
+                              </span>
+                            )}
+                            {sev.Medium > 0 && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-risk-medium/20 dark:text-risk-medium">
+                                {sev.Medium} Medium
+                              </span>
+                            )}
+                            {sev.Low > 0 && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-risk-low/20 dark:text-risk-low">
+                                {sev.Low} Low
+                              </span>
+                            )}
+                            {(!sev.Critical && !sev.High && !sev.Medium && !sev.Low) && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400">
+                                Clean Code
+                              </span>
+                            )}
+                          </div>
+
+                          {item.prReport?.estimated_fix_time && (
+                            <div className="text-xs text-slate-500 dark:text-outline-variant flex items-center gap-1 font-medium">
+                              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>build_circle</span>
+                              Est. Fix: <span className="font-bold text-slate-800 dark:text-on-surface">{item.prReport.estimated_fix_time}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Toolbar */}
+                        <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Primary: View Scan Results */}
+                            <button
+                              onClick={() => viewHistoricalScan(item)}
+                              className="bg-indigo-600 dark:bg-primary text-white dark:text-on-primary hover:bg-indigo-700 dark:hover:brightness-110 font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>visibility</span>
+                              View Scan Results
+                            </button>
+
+                            {/* Download PDF */}
+                            <button
+                              onClick={() => downloadPDF(item.prReport || {}, item.fixedCode, item.code, item.language, item.findings)}
+                              className="bg-slate-100 dark:bg-surface-variant hover:bg-slate-200 dark:hover:brightness-110 text-slate-800 dark:text-on-surface font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border border-slate-200 dark:border-white/5 active:scale-95 transition-all"
+                              title="Download / Print PR Summary PDF"
+                            >
+                              <span className="material-symbols-outlined text-indigo-600 dark:text-primary" style={{ fontSize: '16px' }}>picture_as_pdf</span>
+                              Download PDF
+                            </button>
+
+                            {/* Copy Report (Markdown) */}
+                            <button
+                              onClick={() => copyHistoryReport(item)}
+                              className="bg-slate-100 dark:bg-surface-variant hover:bg-slate-200 dark:hover:brightness-110 text-slate-800 dark:text-on-surface font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border border-slate-200 dark:border-white/5 active:scale-95 transition-all"
+                              title="Copy full markdown report"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                                {isCopied ? 'check' : 'content_copy'}
+                              </span>
+                              {isCopied ? '✓ Report Copied!' : 'Copy Report'}
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {/* Copy Code */}
+                            <button
+                              onClick={() => copyHistoryCode(item)}
+                              className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-on-surface-variant dark:hover:text-white hover:bg-slate-100 dark:hover:bg-surface-variant rounded-md text-xs transition-colors"
+                              title={isCodeCopied ? 'Code Copied!' : 'Copy Source Code'}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>
+                                {isCodeCopied ? 'check' : 'code'}
+                              </span>
+                            </button>
+
+                            {/* Export JSON */}
+                            <button
+                              onClick={() => downloadHistoryJSON(item)}
+                              className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-on-surface-variant dark:hover:text-white hover:bg-slate-100 dark:hover:bg-surface-variant rounded-md text-xs transition-colors"
+                              title="Export JSON Findings"
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>data_object</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           
           {activeTab === 'results' && result && (
             <div>
               <div className="mb-section-gap flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
                   <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-2 text-slate-900 dark:text-on-surface font-black">Analysis Results</h1>
-                  <p className="text-slate-600 dark:text-on-surface-variant font-medium">Reviewing <span className="font-code-sm text-code-sm text-indigo-700 dark:text-primary font-bold">{mode === 'file' ? file?.name || 'Uploaded File' : 'Paste Buffer'}</span></p>
+                  <p className="text-slate-600 dark:text-on-surface-variant font-medium">Reviewing <span className="font-code-sm text-code-sm text-indigo-700 dark:text-primary font-bold">{result._filename || (mode === 'file' ? file?.name || 'Uploaded File' : generateCodeTitle(result._submittedCode, result._submittedLanguage))}</span></p>
                 </div>
                 {prReport && (
                   <button 
@@ -1404,7 +2103,7 @@ export default function App() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-section-gap">
                 {/* Code Health & Key Metrics Overview */}
                 <div className="glass-panel rounded-xl p-stack-lg flex flex-col items-center justify-center lg:col-span-4 relative overflow-hidden">
-                  <div className={`absolute inset-0 bg-gradient-to-br from-${healthScore < 50 ? 'error' : healthScore < 80 ? 'risk-medium' : 'emerald-500'}/5 to-transparent z-0`}></div>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${healthScore < 50 ? 'from-red-500/10' : healthScore < 80 ? 'from-amber-500/10' : 'from-emerald-500/10'} to-transparent z-0`}></div>
                   <div className="relative z-10 text-center w-full">
                     <div className="flex justify-between items-center mb-3">
                       <h3 className="font-label-caps text-label-caps text-slate-700 dark:text-outline uppercase tracking-widest font-bold text-xs">Code Health Score</h3>
@@ -1416,10 +2115,10 @@ export default function App() {
                     <div className="relative inline-flex items-center justify-center my-2">
                       <svg className="w-32 h-32 transform -rotate-90">
                         <circle className="text-slate-200 dark:text-surface-variant" cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" strokeWidth="8"></circle>
-                        <circle className={`text-${healthScore < 50 ? 'error' : healthScore < 80 ? 'risk-medium' : 'emerald-500'}`} cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" strokeDasharray="351.85" strokeDashoffset={351.85 - (351.85 * healthScore) / 100} strokeLinecap="round" strokeWidth="8" style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}></circle>
+                        <circle className={healthScore < 50 ? 'text-red-500 dark:text-risk-critical' : healthScore < 80 ? 'text-amber-500 dark:text-risk-medium' : 'text-emerald-500'} cx="64" cy="64" fill="transparent" r="56" stroke="currentColor" strokeDasharray="351.85" strokeDashoffset={351.85 - (351.85 * healthScore) / 100} strokeLinecap="round" strokeWidth="8" style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}></circle>
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className={`font-display-metric text-display-metric text-${healthScore < 50 ? 'error' : healthScore < 80 ? 'risk-medium' : 'emerald-500'} font-black`}>{healthScore}</span>
+                        <span className={`font-display-metric text-display-metric font-black ${healthScore < 50 ? 'text-red-600 dark:text-risk-critical' : healthScore < 80 ? 'text-amber-600 dark:text-risk-medium' : 'text-emerald-600 dark:text-emerald-400'}`}>{healthScore}</span>
                         <span className="text-xs text-slate-600 dark:text-on-surface-variant font-bold">/100</span>
                       </div>
                     </div>
