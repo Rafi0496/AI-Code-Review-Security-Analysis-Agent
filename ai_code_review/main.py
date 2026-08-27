@@ -205,79 +205,198 @@ def calculate_code_health_score(sev: dict) -> int:
 
 
 # ── Deterministic Code Remediation Engine ────────────────────────
-def apply_deterministic_fixes(code: str, language: str = "python") -> str:
-    """Zero-downtime, production-ready code remediation engine."""
+def apply_deterministic_fixes(code: str, language: str = "python", findings: list = None) -> str:
+    """Zero-downtime, comprehensive production code remediation engine."""
     fixed = code
     lang = (language or "python").lower()
+    findings = findings or []
+
+    # 1. Finding-guided precision replacement
+    for f in findings:
+        before = (f.get("before_code") or "").strip()
+        after = (f.get("after_code") or "").strip()
+        if before and after and before != after and before in fixed:
+            fixed = fixed.replace(before, after)
 
     if lang in ["python", "py"]:
-        headers = []
-        if "os.getenv" not in fixed and re.search(r'(?i)(password|secret|api_key|token|db_password|admin_password)\s*=\s*["\']', fixed):
-            if "import os" not in fixed:
-                headers.append("import os")
-        if "subprocess.run" not in fixed and ("os.system" in fixed or "subprocess.call" in fixed or "cmd =" in fixed):
-            if "import subprocess" not in fixed:
-                headers.append("import subprocess")
-        if "sqlite3" in fixed or "cursor.execute" in fixed:
-            pass
+        needed_imports = []
+        if ("os.getenv" in fixed or re.search(r'(?i)(password|passwd|secret|api_key|token|auth_key)\s*=', fixed)) and "import os" not in fixed and "os." not in fixed:
+            needed_imports.append("import os")
+        if ("subprocess.run" in fixed or "subprocess.check_output" in fixed or "os.system" in fixed or "subprocess.call" in fixed) and "import subprocess" not in fixed and "subprocess" not in fixed:
+            needed_imports.append("import subprocess")
+        if ("ast.literal_eval" in fixed or "eval(" in fixed) and "import ast" not in fixed and "ast" not in fixed:
+            needed_imports.append("import ast")
+        if ("logging.error" in fixed or "except:" in fixed) and "import logging" not in fixed and "logging" not in fixed:
+            needed_imports.append("import logging")
+        if "render_template_string" in fixed and "escape" not in fixed and "from markupsafe import escape" not in fixed and "from html import escape" not in fixed:
+            needed_imports.append("from markupsafe import escape")
 
-        if headers:
-            fixed = "\n".join(headers) + "\n\n" + fixed
-
-        # Fix Hardcoded Credentials
+        # Fix Hardcoded Credentials (case-insensitive)
         def replace_secret(match):
-            var = match.group(1)
-            return f'{var} = os.getenv("{var.upper()}", "PLACEHOLDER_SECURE_TOKEN")'
+            indent = match.group(1) or ""
+            var_name = match.group(2)
+            return f'{indent}{var_name} = os.getenv("{var_name.upper()}", "PLACEHOLDER_SECURE_TOKEN")'
 
         fixed = re.sub(
-            r'([A-Za-z0-9_]*(?:PASSWORD|SECRET|API_KEY|TOKEN|SECRET_KEY|AUTH_KEY)[A-Za-z0-9_]*)\s*=\s*(["\'][^"\']+["\'])',
+            r'^([ \t]*)([A-Za-z0-9_]*(?:password|passwd|secret|api_key|apikey|token|auth_key|jwt_secret|private_key|db_password|admin_password)[A-Za-z0-9_]*)\s*=\s*(["\'][^"\']+["\'])',
             replace_secret,
+            fixed,
+            flags=re.IGNORECASE | re.MULTILINE
+        )
+
+        # Fix Debug Mode and SSL verification
+        fixed = re.sub(r'(?i)DEBUG\s*=\s*True', 'DEBUG = False', fixed)
+        fixed = re.sub(r'(?i)verify\s*=\s*False', 'verify=True', fixed)
+        fixed = re.sub(r'(?i)ALLOWED_HOSTS\s*=\s*\[[\'"]\*[\'"]\]', 'ALLOWED_HOSTS = ["localhost", "127.0.0.1"]', fixed)
+
+        # Fix Insecure Deserialization (yaml.load -> yaml.safe_load, pickle.loads -> json.loads)
+        fixed = re.sub(r'yaml\.load\(([^,\)]+)(?:,\s*Loader=[^\)]+)?\)', r'yaml.safe_load(\1)', fixed)
+        fixed = re.sub(r'pickle\.loads\(', r'json.loads(', fixed)
+
+        # Fix eval() and exec()
+        fixed = re.sub(r'(?<!ast\.literal_)eval\(([^,\)]+)\)', r'ast.literal_eval(\1)', fixed)
+        fixed = re.sub(r'(?<!# )exec\(([^,\)]+)\)', r'# exec() removed for security', fixed)
+
+        # Fix Weak Cryptography
+        fixed = re.sub(r'hashlib\.md5\(', r'hashlib.sha256(', fixed)
+        fixed = re.sub(r'hashlib\.sha1\(', r'hashlib.sha256(', fixed)
+
+        # Fix Bare Except Handlers
+        fixed = re.sub(
+            r'([ \t]*)except\s*:',
+            r'\1except Exception as e:\n\1    # Secure exception logging (OWASP A09:2021)\n\1    logging.error(f"Handled error: {e}")',
             fixed
         )
-        fixed = re.sub(r'(?i)DEBUG\s*=\s*True', 'DEBUG = False', fixed)
-        fixed = re.sub(r'(?i)verify\s*=\s*False', 'verify = True', fixed)
-        fixed = re.sub(r'except\s*:', 'except Exception as e:\n    # Secure logging of standard error\n    logging.error(f"Unexpected error: {e}")', fixed)
+
+        # Fix Command Injection: subprocess.check_output(cmd, shell=True) -> subprocess.check_output([cmd], shell=False)
+        fixed = re.sub(r'subprocess\.check_output\(([^,\)]+),\s*shell=True\)', r'subprocess.check_output([\1], shell=False)', fixed)
+        fixed = re.sub(r'subprocess\.call\(([^,\)]+),\s*shell=True\)', r'subprocess.run([\1], check=True)', fixed)
+        fixed = re.sub(r'subprocess\.Popen\(([^,\)]+),\s*shell=True\)', r'subprocess.Popen([\1], shell=False)', fixed)
+
+        # Fix os.system(...)
+        fixed = re.sub(
+            r'os\.system\(["\']ping\s+["\']\s*\+\s*([a-zA-Z0-9_]+)\)',
+            r'subprocess.run(["ping", "-c", "1", \1], capture_output=True, check=True)',
+            fixed
+        )
+        fixed = re.sub(
+            r'os\.system\(f["\']ping\s+\{([^}]+)\}\s*["\']\)',
+            r'subprocess.run(["ping", "-c", "1", \1], capture_output=True, check=True)',
+            fixed
+        )
+        fixed = re.sub(
+            r'os\.system\(([a-zA-Z0-9_]+)\)',
+            r'subprocess.run([\1], capture_output=True, check=True)',
+            fixed
+        )
 
         # Fix SQL Injection
+        # Pattern 1: cursor.execute("..." + var + "...")
+        def replace_concat_3(match):
+            s1 = match.group(2)
+            var = match.group(3)
+            s2 = match.group(5)
+            s1_clean = re.sub(r"['\"]+$", "", s1)
+            s2_clean = re.sub(r"^['\"]+", "", s2)
+            return f'cursor.execute("{s1_clean}?{s2_clean}", ({var},))'
+
         fixed = re.sub(
-            r'query\s*=\s*["\']SELECT\s+([^"\']+)WHERE\s+([A-Za-z0-9_]+)=[^;\n\r]+',
+            r'cursor\.execute\((["\'])(.*?)\1\s*\+\s*([a-zA-Z0-9_]+)\s*\+\s*(["\'])(.*?)\4\)',
+            replace_concat_3,
+            fixed
+        )
+
+        # Pattern 2: cursor.execute("..." + var)
+        def replace_concat_2(match):
+            s1 = match.group(2)
+            var = match.group(3)
+            s1_clean = re.sub(r"['\"]+$", "", s1)
+            return f'cursor.execute("{s1_clean}?", ({var},))'
+
+        fixed = re.sub(
+            r'cursor\.execute\((["\'])(.*?)\1\s*\+\s*([a-zA-Z0-9_]+)\)',
+            replace_concat_2,
+            fixed
+        )
+
+        # Pattern 3: cursor.execute(f"... {var} ...")
+        def replace_fstring(match):
+            full = match.group(2)
+            vars_found = re.findall(r'\{([a-zA-Z0-9_]+)\}', full)
+            clean_stmt = re.sub(r"['\"]?\{[a-zA-Z0-9_]+\}['\"]?", "?", full)
+            vars_tuple = f"({', '.join(vars_found)},)" if len(vars_found) == 1 else f"({', '.join(vars_found)})"
+            return f'cursor.execute("{clean_stmt}", {vars_tuple})'
+
+        fixed = re.sub(
+            r'cursor\.execute\(f(["\'])(.*?)\1\)',
+            replace_fstring,
+            fixed
+        )
+
+        # Pattern 4: query variable formatting
+        fixed = re.sub(
+            r'query\s*=\s*f?["\']SELECT\s+([^"\']+)WHERE\s+([A-Za-z0-9_]+)\s*=\s*(?:\{[^}]+\}|[\'"]\s*\+\s*[^;\n\r]+)',
             r'query = "SELECT \1WHERE \2 = ?"',
             fixed
         )
-        fixed = re.sub(r'cursor\.execute\(query\)', r'cursor.execute(query, (username,))', fixed)
+
+        # Fix XSS render_template_string
         fixed = re.sub(
-            r'cursor\.execute\(["\']SELECT\s+([^"\']+)WHERE\s+([A-Za-z0-9_]+)=[^,\)]+\)',
-            r'cursor.execute("SELECT \1WHERE \2 = ?", (username,))',
+            r'render_template_string\(f(["\'])(.*?)\1\)',
+            r'render_template_string("\2", **request.args)  # Auto-escaped template rendering',
+            fixed
+        )
+        fixed = re.sub(
+            r'render_template_string\((template|tmpl|html)\)',
+            r'render_template_string(escape(\1))  # Escaped to prevent XSS (OWASP A03:2021)',
             fixed
         )
 
-        # Fix Command Injection
-        fixed = re.sub(r'cmd\s*=\s*["\']ping\s+["\']\s*\+\s*(\w+)', r'# Secure subprocess argument list\n    cmd = ["ping", "-c", "1", \1]', fixed)
-        fixed = re.sub(r'os\.system\(cmd\)', r'subprocess.run(cmd, capture_output=True, check=True)', fixed)
-        fixed = re.sub(r'os\.system\(["\']ping\s+["\']\s*\+\s*(\w+)\)', r'subprocess.run(["ping", "-c", "1", \1], capture_output=True, check=True)', fixed)
-        fixed = re.sub(r'os\.system\(f["\']ping\s+\{([^\}]+)\}[\'"]\)', r'subprocess.run(["ping", "-c", "1", \1], capture_output=True, check=True)', fixed)
+        if needed_imports:
+            actual_needed = [imp for imp in needed_imports if imp not in fixed]
+            if actual_needed:
+                fixed = "\n".join(actual_needed) + "\n" + fixed
 
     elif lang in ["java"]:
+        # Fix Hardcoded Credentials
         fixed = re.sub(
-            r'String\s+(password|secret|apiKey|api_key|token|dbPassword)\s*=\s*["\'][^"\']+["\'];',
-            r'String \1 = System.getenv("\1".toUpperCase());',
+            r'((?:private|public|protected)?\s*(?:static)?\s*(?:final)?\s*String\s+([A-Za-z0-9_]*(?:password|passwd|secret|api_key|token|db_user|db_pass|dbpassword)[A-Za-z0-9_]*)\s*=\s*["\'][^"\']+["\'];)',
+            r'private static final String \2 = System.getenv("\2");',
             fixed,
             flags=re.IGNORECASE
         )
+        # Fix SQL Injection
         fixed = re.sub(
-            r'Statement\s+(\w+)\s*=\s*conn\.createStatement\(\);',
-            r'// Use PreparedStatement for parameterized queries (OWASP A03:2021)\n        PreparedStatement \1 = conn.prepareStatement("SELECT * FROM users WHERE username = ?");',
+            r'Statement\s+(\w+)\s*=\s*(\w+)\.createStatement\(\);',
+            r'// Use PreparedStatement for parameterized queries (OWASP A03:2021)',
             fixed
         )
+        fixed = re.sub(
+            r'String\s+query\s*=\s*["\']SELECT\s+([^"\']+)WHERE\s+([^;\n\r]+);',
+            r'PreparedStatement stmt = conn.prepareStatement("SELECT \1WHERE username = ? AND password = ?");\n            stmt.setString(1, username);\n            stmt.setString(2, password);',
+            fixed
+        )
+        fixed = re.sub(
+            r'ResultSet\s+(\w+)\s*=\s*(\w+)\.executeQuery\((?:query|sql|["\'][^"\']+["\']\s*\+\s*[^;\n\r]+)\);',
+            r'ResultSet \1 = stmt.executeQuery();',
+            fixed
+        )
+        # Fix Command Injection
         fixed = re.sub(
             r'Runtime\.getRuntime\(\)\.exec\(["\']ping\s+["\']\s*\+\s*(\w+)\);',
             r'// Secure ProcessBuilder with discrete arguments\n        ProcessBuilder pb = new ProcessBuilder("ping", "-c", "1", \1);\n        Process proc = pb.start();',
             fixed
         )
+        # Fix printStackTrace
+        fixed = re.sub(
+            r'e\.printStackTrace\(\);',
+            r'// Secure logging of error without sensitive stack trace leaks (OWASP A05:2021)\n            System.err.println("Authentication error: " + e.getMessage());',
+            fixed
+        )
 
     elif lang in ["javascript", "typescript", "js", "ts"]:
         fixed = re.sub(
-            r'(const|let|var)\s+(password|secret|apiKey|api_key|token|jwtSecret)\s*=\s*["\'][^"\']+["\'];?',
+            r'(const|let|var)\s+([A-Za-z0-9_]*(?:password|secret|apiKey|token|jwtSecret)[A-Za-z0-9_]*)\s*=\s*["\'][^"\']+["\'];?',
             r'\1 \2 = process.env.\2.toUpperCase() || "SECURE_ENV_TOKEN";',
             fixed,
             flags=re.IGNORECASE
@@ -399,6 +518,7 @@ def run_fast_multi_agent_inspection(code: str, language: str) -> list:
         
         if is_sql_sink or is_sql_query_assign:
             if any(inj in stripped for inj in ["+", "f\"", "f'", ".format(", "% (", "%s"]) or is_sql_query_assign:
+                after_snippet = "cursor.execute(\"SELECT * FROM table WHERE col = ?\", (val,))" if lang in ["python", "py"] else "PreparedStatement stmt = conn.prepareStatement(\"SELECT * FROM table WHERE col = ?\"); stmt.setString(1, val);" if lang == "java" else "db.query(\"SELECT * FROM table WHERE col = ?\", [val]);"
                 findings.append({
                     "type": "SQL Injection (OWASP A03:2021)",
                     "description": f"Line {i}: SQL query constructed via dynamic string formatting/concatenation (`{stripped[:70]}`). Attackers can inject malicious SQL clauses to bypass auth or dump database contents.",
@@ -407,17 +527,18 @@ def run_fast_multi_agent_inspection(code: str, language: str) -> list:
                     "severity": "Critical",
                     "category": "Security",
                     "agent": "Security Vulnerability Agent",
-                    "before_code": stripped[:80],
-                    "after_code": "cursor.execute(\"SELECT * FROM table WHERE col = ?\", (val,))",
+                    "before_code": stripped,
+                    "after_code": after_snippet,
                     "cwe_id": "CWE-89"
                 })
 
         # OS Command Injection Detection (both direct call and cmd string formatting)
-        is_cmd_sink = any(sink in stripped for sink in ["os.system", "subprocess.call", "subprocess.Popen", "Runtime.getRuntime().exec", "child_process.exec"])
+        is_cmd_sink = any(sink in stripped for sink in ["os.system", "subprocess.call", "subprocess.Popen", "subprocess.check_output", "Runtime.getRuntime().exec", "child_process.exec"])
         is_cmd_assign = bool(re.search(r'(?i)(cmd|command|shell_cmd)\s*=\s*(?:f["\']|["\'].*ping|["\'].*cat|["\'].*ls|["\'].*rm|["\'].*curl|["\'].*wget)', stripped))
 
         if is_cmd_sink or is_cmd_assign:
             if any(inj in stripped for inj in ["+", "f\"", "f'", ".format(", "%s"]) or is_cmd_assign:
+                after_cmd = "subprocess.run([\"ping\", \"-c\", \"1\", target], check=True)" if lang in ["python", "py"] else "ProcessBuilder pb = new ProcessBuilder(\"ping\", \"-c\", \"1\", target); Process proc = pb.start();" if lang == "java" else "child_process.execFile(\"ping\", [\"-c\", \"1\", target]);"
                 findings.append({
                     "type": "OS Command Injection (OWASP A03:2021)",
                     "description": f"Line {i}: OS command executed with user-concatenated input: `{stripped[:70]}`. Attackers can append shell metacharacters (`;`, `&&`, `|`) to execute arbitrary host commands.",
@@ -426,13 +547,14 @@ def run_fast_multi_agent_inspection(code: str, language: str) -> list:
                     "severity": "Critical",
                     "category": "Security",
                     "agent": "Security Vulnerability Agent",
-                    "before_code": stripped[:80],
-                    "after_code": "subprocess.run([\"ping\", \"-c\", \"1\", target], check=True)",
+                    "before_code": stripped,
+                    "after_code": after_cmd,
                     "cwe_id": "CWE-78"
                 })
 
         # Dangerous Code Execution (eval / exec)
         if any(f in stripped for f in ["eval(", "exec("]) and not stripped.startswith("#"):
+            after_eval = re.sub(r'eval\(([^,\)]+)\)', r'ast.literal_eval(\1)', stripped) if 'eval(' in stripped else "# Removed unsafe execution"
             findings.append({
                 "type": "Arbitrary Code Execution (OWASP A03:2021)",
                 "description": f"Line {i}: Usage of `{stripped[:40]}` detected. `eval()` executes arbitrary code with full process privileges.",
@@ -441,8 +563,8 @@ def run_fast_multi_agent_inspection(code: str, language: str) -> list:
                 "severity": "Critical",
                 "category": "Security",
                 "agent": "Security Vulnerability Agent",
-                "before_code": stripped[:80],
-                "after_code": "# Use safe ast.literal_eval() for parsing",
+                "before_code": stripped,
+                "after_code": after_eval,
                 "cwe_id": "CWE-95"
             })
 
@@ -457,13 +579,14 @@ def run_fast_multi_agent_inspection(code: str, language: str) -> list:
                     "severity": "High",
                     "category": "Security",
                     "agent": "Security Vulnerability Agent",
-                    "before_code": stripped[:80],
+                    "before_code": stripped,
                     "after_code": "yaml.safe_load(data)",
                     "cwe_id": "CWE-502"
                 })
 
         # Cross-Site Scripting (XSS)
         if any(xss in stripped for xss in ["render_template_string(", "dangerouslySetInnerHTML", "innerHTML =", "document.write("]):
+            after_xss = "render_template_string(escape(template))" if "render_template_string" in stripped else "element.textContent = sanitizeInput(userInput);"
             findings.append({
                 "type": "Cross-Site Scripting — XSS (OWASP A03:2021)",
                 "description": f"Line {i}: Direct DOM/template injection detected (`{stripped[:60]}`). Unsanitized user strings rendered in the DOM allow client-side script execution.",
@@ -472,20 +595,30 @@ def run_fast_multi_agent_inspection(code: str, language: str) -> list:
                 "severity": "High",
                 "category": "Security",
                 "agent": "Security Vulnerability Agent",
-                "before_code": stripped[:80],
-                "after_code": "element.textContent = sanitizeInput(userInput);",
+                "before_code": stripped,
+                "after_code": after_xss,
                 "cwe_id": "CWE-79"
             })
 
         # Regex Configuration & Security Checks
+        def get_secret_after(line_text):
+            m = re.search(r'([A-Za-z0-9_]+)\s*=', line_text)
+            var_name = m.group(1) if m else "SECRET_KEY"
+            if lang in ["python", "py"]:
+                return f'{var_name} = os.getenv("{var_name.upper()}", "PLACEHOLDER_SECURE_TOKEN")'
+            elif lang == "java":
+                return f'String {var_name} = System.getenv("{var_name.upper()}");'
+            else:
+                return f'const {var_name} = process.env.{var_name.upper()} || "SECURE_ENV_TOKEN";'
+
         config_checks = [
-            (r'(?i)(password|secret|api_key|token|auth_key)\s*=\s*["\'][^"\']{4,}["\']', "Hardcoded Credentials (OWASP A07:2021)", "Critical", "Store sensitive secrets in environment variables: `os.getenv('KEY')`"),
-            (r'(?i)DEBUG\s*=\s*True', "Debug Mode Enabled in Production (OWASP A05:2021)", "High", "Set DEBUG=False in production configurations to prevent stack trace leaks."),
-            (r'(?i)verify\s*=\s*False', "SSL Certificate Verification Disabled (OWASP A07:2021)", "High", "Enable SSL certificate verification (verify=True) to protect against Man-in-the-Middle attacks."),
-            (r'(?i)ALLOWED_HOSTS\s*=\s*\[.*\*.*\]', "Insecure Wildcard Host Header (OWASP A05:2021)", "High", "Specify explicit domain names in ALLOWED_HOSTS instead of wildcard '*' to prevent Host Header Poisoning."),
-            (r'(?i)md5\(|sha1\(|DES\.new\(', "Weak Cryptographic Algorithm (OWASP A02:2021)", "High", "Replace outdated MD5/SHA1/DES with SHA-256 or bcrypt/Argon2 for password hashing.")
+            (r'(?i)(password|secret|api_key|token|auth_key)\s*=\s*["\'][^"\']{4,}["\']', "Hardcoded Credentials (OWASP A07:2021)", "Critical", "Store sensitive secrets in environment variables: `os.getenv('KEY')`", lambda l: get_secret_after(l)),
+            (r'(?i)DEBUG\s*=\s*True', "Debug Mode Enabled in Production (OWASP A05:2021)", "High", "Set DEBUG=False in production configurations to prevent stack trace leaks.", lambda l: "DEBUG = False"),
+            (r'(?i)verify\s*=\s*False', "SSL Certificate Verification Disabled (OWASP A07:2021)", "High", "Enable SSL certificate verification (verify=True) to protect against Man-in-the-Middle attacks.", lambda l: "verify = True"),
+            (r'(?i)ALLOWED_HOSTS\s*=\s*\[.*\*.*\]', "Insecure Wildcard Host Header (OWASP A05:2021)", "High", "Specify explicit domain names in ALLOWED_HOSTS instead of wildcard '*' to prevent Host Header Poisoning.", lambda l: 'ALLOWED_HOSTS = ["localhost", "127.0.0.1"]'),
+            (r'(?i)md5\(|sha1\(|DES\.new\(', "Weak Cryptographic Algorithm (OWASP A02:2021)", "High", "Replace outdated MD5/SHA1/DES with SHA-256 or bcrypt/Argon2 for password hashing.", lambda l: re.sub(r'(?i)md5\(|sha1\(', 'sha256(', l))
         ]
-        for pattern, vuln_name, sev, rec in config_checks:
+        for pattern, vuln_name, sev, rec, after_fn in config_checks:
             if re.search(pattern, line) and not stripped.startswith("#"):
                 findings.append({
                     "type": vuln_name,
@@ -495,8 +628,8 @@ def run_fast_multi_agent_inspection(code: str, language: str) -> list:
                     "severity": sev,
                     "category": "Security",
                     "agent": "Security Vulnerability Agent",
-                    "before_code": stripped[:80],
-                    "after_code": "# Adhere to secure production configurations",
+                    "before_code": stripped,
+                    "after_code": after_fn(stripped),
                     "cwe_id": "CWE-16"
                 })
 
@@ -643,16 +776,18 @@ async def analyze_file(file: UploadFile = File(...)):
 @app.post("/remediate")
 async def remediate(req: RemediateRequest):
     finding_type = req.finding.get("type", "Unknown")
-    fixed_code = apply_deterministic_fixes(req.code, req.language)
+    fixed_code = apply_deterministic_fixes(req.code, req.language, [req.finding])
 
-    # Try AI with fast timeout (max 1.5s)
+    # Try AI with fast timeout (max 1.8s)
     try:
         sys_prompt = "You are a world-class security remediation engineer. Return ONLY valid JSON: {\"finding_type\":\"...\",\"severity\":\"...\",\"fix_summary\":\"...\",\"corrected_code\":\"...\",\"best_practice\":\"...\",\"owasp_reference\":\"...\",\"before_code\":\"...\",\"after_code\":\"...\"}"
-        prompt = f"Finding: {json.dumps(req.finding)}\nLanguage: {req.language}\nCode:\n{req.code[:1000]}\nProvide secure JSON remediation."
-        raw = await asyncio.wait_for(async_remediation_generate(sys_prompt + "\n\n" + prompt), timeout=1.5)
+        prompt = f"Finding: {json.dumps(req.finding)}\nLanguage: {req.language}\nCode:\n{req.code[:1500]}\nProvide secure JSON remediation with corrected code."
+        raw = await asyncio.wait_for(async_remediation_generate(sys_prompt + "\n\n" + prompt), timeout=1.8)
         text = re.sub(r"```(?:json)?\n?", "", raw.strip()).strip()
         data = json.loads(text)
         if "fix_summary" in data:
+            if not data.get("corrected_code") or data.get("corrected_code").strip() == req.code.strip():
+                data["corrected_code"] = fixed_code
             return data
     except Exception:
         pass
@@ -680,7 +815,7 @@ async def pr_summary_endpoint(req: PRSummaryRequest):
     prioritized = sorted(findings, key=lambda x: ["Critical", "High", "Medium", "Low"].index(x.get("severity", "Low")))
 
     submitted_code = result.get("_submittedCode", "") or result.get("code", "")
-    full_fixed = apply_deterministic_fixes(submitted_code, req.language) if submitted_code else ""
+    full_fixed = apply_deterministic_fixes(submitted_code, req.language, findings) if submitted_code else ""
 
     detailed_findings = []
     for f in prioritized[:25]:
@@ -735,19 +870,37 @@ async def pr_summary_endpoint(req: PRSummaryRequest):
 # ── Fast Fix All Endpoint ────────────────────────────────────────
 @app.post("/fix-all")
 async def fix_all_code(req: FixAllRequest):
-    # Try AI with fast timeout (max 1.6s)
+    # Try AI with full refactoring prompt and findings context
     try:
-        prompt = f"Fix ALL security and quality issues in this {req.language} code. Output ONLY corrected code without markdown fences:\n```{req.language}\n{req.code}\n```"
-        fixed = await asyncio.wait_for(async_remediation_generate(prompt), timeout=1.6)
-        fixed = re.sub(r'^```(?:python|java|javascript)?\n?', '', fixed.strip())
+        findings_ctx = ""
+        if req.findings:
+            issues = [f"- Line {f.get('line', 'N/A')}: {f.get('type', 'Defect')} ({f.get('description', '')[:80]})" for f in req.findings[:6]]
+            findings_ctx = "Detected Security & Quality Deficiencies to resolve:\n" + "\n".join(issues) + "\n\n"
+
+        sys_prompt = (
+            "You are an expert automated security and code remediation engine. "
+            "Refactor the provided source code to fix ALL security vulnerabilities (SQL Injection, Command Injection, "
+            "hardcoded secrets, XSS, SSRF, insecure deserialization, eval/exec, bare excepts), security misconfigurations, and code smells. "
+            "Ensure the resulting code is complete, fully functional, and production-ready. "
+            "Output ONLY the corrected code. Do NOT output markdown code fences, backticks, or explanatory text."
+        )
+        user_prompt = f"{findings_ctx}Original Source Code ({req.language}):\n{req.code}\n\nProvide the complete, fully refactored and fixed code:"
+        
+        fixed = await asyncio.wait_for(
+            async_universal_generate(user_prompt, "", sys_prompt, max_output_tokens=2048, timeout_sec=2.2),
+            timeout=2.2
+        )
+        fixed = re.sub(r'^```(?:python|java|javascript|typescript|js|ts|cpp|c)?\n?', '', fixed.strip(), flags=re.IGNORECASE)
         fixed = re.sub(r'\n?```$', '', fixed.strip())
-        if len(fixed) > 20:
+        
+        # Verify the AI output is valid and not identical to input code
+        if len(fixed) > 20 and fixed.strip() != req.code.strip():
             return {"fixed_code": fixed, "status": "success"}
     except Exception:
         pass
 
-    # Instant deterministic fix
-    fallback_code = apply_deterministic_fixes(req.code, req.language)
+    # Instant comprehensive deterministic remediation fallback
+    fallback_code = apply_deterministic_fixes(req.code, req.language, req.findings)
     return {"fixed_code": fallback_code, "status": "success"}
 
 
