@@ -585,7 +585,21 @@ def run_fast_multi_agent_inspection(code: str, language: str) -> list:
                 })
 
         # Cross-Site Scripting (XSS)
-        if any(xss in stripped for xss in ["render_template_string(", "dangerouslySetInnerHTML", "innerHTML =", "document.write("]):
+        is_xss_vuln = False
+        if not stripped.startswith("#") and not stripped.startswith("//"):
+            if not any(safe in stripped for safe in ["escape(", "DOMPurify", "sanitize", "textContent", "sanitizeInput"]):
+                if "render_template_string(" in stripped:
+                    m_tmpl = re.search(r'render_template_string\((.+?)\)', stripped)
+                    if m_tmpl:
+                        arg = m_tmpl.group(1).strip()
+                        if arg.startswith('f"') or arg.startswith("f'") or "+" in arg or re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', arg):
+                            is_xss_vuln = True
+                elif re.search(r'\.innerHTML\s*=', stripped) or "document.write(" in stripped:
+                    is_xss_vuln = True
+                elif "dangerouslySetInnerHTML" in stripped and "sanitize" not in stripped:
+                    is_xss_vuln = True
+
+        if is_xss_vuln:
             after_xss = "render_template_string(escape(template))" if "render_template_string" in stripped else "element.textContent = sanitizeInput(userInput);"
             findings.append({
                 "type": "Cross-Site Scripting — XSS (OWASP A03:2021)",
