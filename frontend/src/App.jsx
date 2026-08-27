@@ -986,6 +986,11 @@ export default function App() {
       const codeTitle = generateCodeTitle(submittedCode, submittedLang, filename)
       const newScanId = 'scan_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)
 
+      const initialPr = (res.pr_summary && res.pr_summary.executive_overview) ? res.pr_summary : null
+      if (initialPr) {
+        setPrReport(initialPr)
+      }
+
       const newHistoryItem = {
         id: newScanId,
         timestamp: new Date().toISOString(),
@@ -997,7 +1002,7 @@ export default function App() {
         healthScore: score,
         summary: res.summary || {},
         findings: res.findings || [],
-        prReport: null,
+        prReport: initialPr,
         fixedCode: null,
       }
 
@@ -1024,7 +1029,7 @@ export default function App() {
   }, [code, file, mode])
 
   useEffect(() => {
-    if (!result || prReport) return
+    if (!result || prReport || (result.pr_summary && result.pr_summary.executive_overview)) return
     const fetchPR = async () => {
       setPrLoading(true)
       try {
@@ -1061,7 +1066,7 @@ export default function App() {
       }
     }
     fetchPR()
-  }, [result])
+  }, [result, prReport, currentScanId])
 
   const onDrop = (e) => {
     e.preventDefault()

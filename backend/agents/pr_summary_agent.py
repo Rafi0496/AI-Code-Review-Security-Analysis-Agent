@@ -115,7 +115,7 @@ async def run_pr_summary(
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.4,
-                max_output_tokens=4096,
+                max_output_tokens=1024,
             ),
         )
 

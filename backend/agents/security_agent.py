@@ -77,7 +77,7 @@ async def run_security_analysis(code: str, language: str) -> dict:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.1,  # Low temperature for more deterministic security findings
-                max_output_tokens=8192,
+                max_output_tokens=1024,
             ),
         )
 

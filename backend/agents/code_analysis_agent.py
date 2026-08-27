@@ -1,4 +1,4 @@
-git push -f origin master:main"""
+"""
 Code Analysis Agent — Reviews code structure, identifies code smells,
 design anti-patterns, complexity issues, and poor practices using Google ADK + Gemini.
 """
@@ -68,7 +68,7 @@ async def run_code_analysis(code: str, language: str) -> dict:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2,
-                max_output_tokens=8192,
+                max_output_tokens=1024,
             ),
         )
 

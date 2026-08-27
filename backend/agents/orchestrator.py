@@ -38,13 +38,12 @@ class ReviewPipeline:
 
         print(f"[Orchestrator] Starting review pipeline for '{filename}' ({language})")
 
-        # Stage 1: Code Analysis Agent
-        print("[Orchestrator] Stage 1: Code Analysis Agent running...")
-        code_analysis = await run_code_analysis(code, language)
-
-        # Stage 2: Security Vulnerability Agent
-        print("[Orchestrator] Stage 2: Security Vulnerability Agent running...")
-        security_analysis = await run_security_analysis(code, language)
+        # Stage 1 & 2: Code Analysis Agent & Security Vulnerability Agent (Parallel)
+        print("[Orchestrator] Running Code Analysis & Security Agents concurrently...")
+        code_analysis, security_analysis = await asyncio.gather(
+            run_code_analysis(code, language),
+            run_security_analysis(code, language)
+        )
 
         # Stage 3: Remediation Agent (uses outputs from Stages 1 & 2)
         print("[Orchestrator] Stage 3: Remediation Agent running...")

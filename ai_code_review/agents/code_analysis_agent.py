@@ -277,30 +277,23 @@ class CodeAnalysisAgent:
 
     def _gemini_analysis(self, code: str, language: str) -> list:
         """
-        Sends chunked code to Gemini API for deep pattern analysis.
-        Detects anti-patterns, design issues, and poor practices
-        that static analysis alone may miss.
+        Sends code to Gemini API in a single fast pass.
+        Detects anti-patterns, design issues, and poor practices.
         """
-        chunks = self._chunk_by_function(code, language)
-        all_findings = []
-
-        for chunk in chunks:
-            prompt = self._build_analysis_prompt(chunk, language)
-            try:
-                response = _get_client().models.generate_content(
-                    model=GEMINI_MODEL,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        temperature=0.1,
-                    ),
-                )
-                parsed = self._parse_gemini_response(response.text)
-                all_findings += parsed
-            except Exception as e:
-                print(f"[CodeAnalysisAgent] Gemini API error: {e}")
-
-        return all_findings
+        prompt = self._build_analysis_prompt(code[:4000], language)
+        try:
+            response = _get_client().models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.1,
+                ),
+            )
+            return self._parse_gemini_response(response.text)
+        except Exception as e:
+            print(f"[CodeAnalysisAgent] Gemini API error: {e}")
+            return []
 
     def _build_analysis_prompt(self, code_chunk: str, language: str) -> str:
         return f"""You are a senior software engineer performing a code quality review.
