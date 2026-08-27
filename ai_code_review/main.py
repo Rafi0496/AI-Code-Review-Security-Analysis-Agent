@@ -939,50 +939,100 @@ async def rag_rebuild():
 
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
-    # Try AI router with fast 1.8s timeout
+    findings_list = req.context_findings or []
+    code = req.context_code or ""
+    q = req.question.strip()
+    q_lower = q.lower()
+
+    # 1. Try AI router with full context
     try:
-        context = ""
-        if req.context_code:
-            context += f"User's code:\n{req.context_code[:800]}\n\n"
-        if req.context_findings:
-            context += f"Analysis findings: {json.dumps(req.context_findings[:3])}\n\n"
-        prompt = f"You are Lyca, an elite AI Code Review & Security Assistant. Provide clear, professional bulleted advice.\n{context}User: {req.question}\nLyca:"
-        ans = await asyncio.wait_for(async_chatbot_generate(prompt), timeout=1.8)
-        if ans and len(ans.strip()) > 5:
-            code_example = ""
+        sys_prompt = (
+            "You are Lyca, an expert AI Code Review & Security Analysis Assistant. "
+            "Help the developer understand their code quality, security vulnerabilities, OWASP Top 10 risks, "
+            "and refactoring best practices. Provide direct, helpful, and specific explanations with Markdown and code snippets."
+        )
+        
+        ctx_parts = []
+        if code:
+            ctx_parts.append(f"### Current Submitted Code:\n```\n{code[:1500]}\n```")
+        if findings_list:
+            findings_summary = "\n".join([f"- [{f.get('severity', 'Medium')}] {f.get('type', 'Issue')} at Line {f.get('line', 'N/A')}: {f.get('description', '')}" for f in findings_list[:6]])
+            ctx_parts.append(f"### Detected Security & Quality Findings:\n{findings_summary}")
+        if req.conversation_history:
+            hist_str = "\n".join([f"{h.get('role', 'user').capitalize()}: {h.get('content', '')}" for h in req.conversation_history[-4:]])
+            ctx_parts.append(f"### Conversation History:\n{hist_str}")
+
+        full_context = "\n\n".join(ctx_parts)
+        user_prompt = f"User Question: {q}\n\nRespond thoroughly and concisely with clear explanations and code examples where helpful:"
+
+        ans = await asyncio.wait_for(
+            async_universal_generate(user_prompt, full_context, sys_prompt, max_output_tokens=1024, timeout_sec=2.2),
+            timeout=2.2
+        )
+        if ans and len(ans.strip()) > 15:
             code_match = re.search(r'```(?:\w+)?\n(.+?)\n```', ans, re.DOTALL)
-            if code_match:
-                code_example = code_match.group(1)
+            code_ex = code_match.group(1) if code_match else ""
             return {
-                "answer": ans,
-                "code_example": code_example,
-                "sources": [],
+                "answer": ans.strip(),
+                "code_example": code_ex,
+                "sources": ["OWASP Top 10:2021", "CWE Security Catalog", "Multi-Agent Review Pipeline"],
                 "related_questions": [],
                 "confidence": "high"
             }
     except Exception:
         pass
 
-    # Instant intelligent contextual chat
-    q_lower = req.question.lower()
-    if "sql" in q_lower or "injection" in q_lower:
-        ans = "### SQL Injection Mitigation (OWASP A03)\n\nNever format strings into queries. Always use parameterized queries or an ORM:\n\n```python\n# SECURE (Parameterized query):\ncursor.execute('SELECT * FROM users WHERE username = ?', (username,))\n```"
-        ex = "cursor.execute('SELECT * FROM users WHERE username = ?', (username,))"
-    elif any(k in q_lower for k in ["secret", "password", "key", "token"]):
-        ans = "### Secret Management Standards\n\nStore all credentials in `.env` files and retrieve them dynamically:\n\n```python\nimport os\nDB_PASSWORD = os.getenv('DB_PASSWORD')\n```"
-        ex = "DB_PASSWORD = os.getenv('DB_PASSWORD')"
+    # 2. Intelligent Context-Aware Deterministic Response
+    if any(k in q_lower for k in ["problem", "issue", "vulnerab", "defect", "finding", "what is wrong", "what's wrong", "explain", "review"]):
+        if findings_list:
+            items = []
+            for idx, f in enumerate(findings_list[:6], 1):
+                sev = f.get("severity", "Medium")
+                ftype = f.get("type", "Issue")
+                line_no = f.get("line", "N/A")
+                desc = f.get("description", "Potential code quality or security risk.")
+                rec = f.get("recommendation", "Review and apply secure coding practices.")
+                items.append(f"#### {idx}. [{sev}] {ftype} (Line {line_no})\n- **Details**: {desc}\n- **Recommendation**: {rec}")
+            
+            ans = f"### Detected Issues in Your Code ({len(findings_list)} Total Findings)\n\n" + "\n\n".join(items)
+            ans += "\n\n---\n*Tip: Click **'Generate Fixed Code'** on the left to automatically refactor all of these issues!*"
+            ex = findings_list[0].get("after_code", "") if findings_list else ""
+        else:
+            ans = "### Code Analysis Status\n\nNo critical security vulnerabilities or code smells were identified in the currently submitted code. Your code appears clean and adheres to standard security practices."
+            ex = ""
     elif any(k in q_lower for k in ["how to fix", "fix this", "remediate", "solve", "fixed code"]):
-        fixed = apply_deterministic_fixes(req.context_code or "", "python")
-        ans = f"Here is the remediated, secure version of your code:\n\n```python\n{fixed}\n```"
-        ex = fixed
+        if code:
+            fixed = apply_deterministic_fixes(code, "python", findings_list)
+            ans = f"### Remediated & Secure Code\n\nHere is the corrected version addressing detected issues:\n\n```python\n{fixed}\n```"
+            ex = fixed
+        else:
+            ans = "To generate a fix, please submit your source code in the main workspace."
+            ex = ""
+    elif "sql" in q_lower or "injection" in q_lower:
+        ans = "### SQL Injection Prevention (OWASP A03:2021)\n\nSQL Injection occurs when untrusted input is concatenated directly into a database query. Always use parameterized queries (prepared statements):\n\n```python\n# SECURE (Parameterized query):\ncursor.execute('SELECT * FROM users WHERE username = ?', (username,))\n```"
+        ex = "cursor.execute('SELECT * FROM users WHERE username = ?', (username,))"
+    elif any(k in q_lower for k in ["secret", "password", "key", "token", "credential"]):
+        ans = "### Hardcoded Secrets Management (OWASP A07:2021)\n\nNever hardcode credentials or secrets in source files. Store them in `.env` files and retrieve them dynamically:\n\n```python\nimport os\nDB_PASSWORD = os.getenv('DB_PASSWORD')\n```"
+        ex = "DB_PASSWORD = os.getenv('DB_PASSWORD')"
+    elif any(k in q_lower for k in ["xss", "cross-site", "template"]):
+        ans = "### Cross-Site Scripting — XSS (OWASP A03:2021)\n\nEnsure all dynamic data rendered in templates is escaped or sanitized:\n\n```python\nfrom markupsafe import escape\nreturn render_template_string(escape(user_template))\n```"
+        ex = "render_template_string(escape(user_template))"
     else:
-        ans = f"### Expert Guidance for: **{req.question}**\n\n- **Security & Quality**: Enforce input validation, parameterize all external calls, and catch specific exceptions.\n- **Clean Architecture**: Extract logic into modular functions adhering to SOLID principles."
+        ans = (
+            f"### Assistant Guidance for: *{q}*\n\n"
+            "Key recommendations for your code:\n\n"
+            "1. **Input Validation**: Enforce strict data types and validate all user-supplied input.\n"
+            "2. **Parameterized Queries**: Always use prepared statements for SQL and discrete argument lists for subprocess calls.\n"
+            "3. **Secrets Management**: Store API keys and passwords in environment variables (`os.getenv`).\n"
+            "4. **Error Handling**: Catch specific exceptions and avoid leaking sensitive stack traces.\n\n"
+            "Ask me anything specific about any finding, vulnerability type, or refactoring step!"
+        )
         ex = ""
 
     return {
         "answer": ans,
         "code_example": ex,
-        "sources": [],
+        "sources": ["OWASP Top 10:2021", "CWE Security Catalog"],
         "related_questions": [],
         "confidence": "high"
     }
