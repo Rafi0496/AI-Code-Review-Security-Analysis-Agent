@@ -142,50 +142,6 @@ flowchart TD
 
 ---
 
-## 🚀 Local Setup and Installation
-
-### Prerequisites
-- **Python 3.11+** installed
-- **Node.js 20+** installed
-- A **Google Gemini API Key** ([Get your key here](https://aistudio.google.com/))
-
----
-
-### 1. Backend Setup
-
-```powershell
-# Clone the repository
-git clone https://github.com/Rafi0496/AI-Code-Review-Security-Analysis-Agent.git
-cd "AI-Code-Review-Security-Analysis-Agent"
-
-# Install backend dependencies
-pip install -r ai_code_review/requirements.txt
-
-# Create your .env file
-echo "GEMINI_API_KEY=your_actual_gemini_api_key_here" > .env
-
-# Start the FastAPI backend server
-uvicorn ai_code_review.main:app --reload --port 8000
-```
-> The API will be active at `http://localhost:8000` (Swagger docs at `http://localhost:8000/docs`).
-
----
-
-### 2. Frontend Setup
-
-```powershell
-# Open a new terminal and navigate to the frontend folder
-cd frontend
-
-# Install Node dependencies
-npm install
-
-# Start the Vite development server
-npm run dev
-```
-> The web interface will open at `http://localhost:5173`.
-
----
 
 ## 📡 Key API Endpoints
 
