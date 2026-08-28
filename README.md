@@ -192,6 +192,7 @@ flowchart TD
 │   ├── 2_complex_auth.java         # Java SQLi, credential constant, printStackTrace test
 │   └── 3_advanced_vulns.py         # Command injection, YAML deserialization, XSS test
 │
+├── LICENSE                         # MIT Open-Source License
 └── README.md                       # Master project documentation
 ```
 
@@ -216,4 +217,4 @@ Expected output:
 
 ## 📜 License
 
-Distributed under the **MIT License**. See `LICENSE` for more information.
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.
