@@ -78,3 +78,4 @@ def verify_csrf_token(token: str, session_id: str, secret_key: bytes) -> bool:
 
 ### 4.3 Custom Request Headers for REST APIs
 Enforce custom request headers (e.g. `X-Requested-With: XMLHttpRequest` or `X-CSRF-Token`) on all JSON APIs. Standard HTML `<form>` elements cannot set custom headers, defeating classic browser CSRF.
+

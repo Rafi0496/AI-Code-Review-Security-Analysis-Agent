@@ -1,213 +1,345 @@
-# 🛡️ Smart Code Inspection Platform with Multi-Agent Vulnerability Detection System
+# Aegis AI: Multi-Agent Code Inspection and Security Analysis Platform
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org)
+[![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
-[![Google Gemini](https://img.shields.io/badge/Google%20Gemini%202.0-8E75C2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-An enterprise-grade, multi-agent AI platform engineered to automatically scan, analyze, score, and refactor source code. Powered by specialized static AST analyzers, OWASP Top 10 security agents, real-time taint tracking, and Google Gemini 2.0 LLMs, the platform delivers sub-second automated security reviews, interactive diffs, 1-click full code remediation, and conversational AI assistance.
-
----
-
-## 🌐 Live Deployments
-
-- **Live Web Application**: [https://ai-code-review-security-analysis-ag.vercel.app](https://ai-code-review-security-analysis-ag.vercel.app)
-- **Backend API**: Hosted on high-performance containerized cloud infrastructure.
+An enterprise-grade, multi-agent artificial intelligence platform designed to automate Static Application Security Testing (SAST), detect structural code smells, analyze data flow via heuristic taint tracking, and execute autonomous one-click remediation. Driven by deterministic Abstract Syntax Tree (AST) analyzers, OWASP Top 10 rule engines, and high-throughput Large Language Models (LLMs), the platform delivers sub-second security evaluations, interactive side-by-side diffs, context-aware conversational pair programming, and publication-ready Pull Request audit documentation.
 
 ---
 
-## 🏗️ Multi-Agent Architecture & Execution Pipeline
+## Production Deployments
 
-The platform operates on a synchronized, multi-tiered pipeline where specialized autonomous agents collaborate in strict sequence to evaluate and remediate uploaded code.
+* **Production Web Application**: [https://ai-code-review-security-analysis-ag.vercel.app](https://ai-code-review-security-analysis-ag.vercel.app)
+* **Backend Microservice API**: [https://ai-code-review-security-analysis-agent.onrender.com](https://ai-code-review-security-analysis-agent.onrender.com)
+* **API Documentation**: Available at `/docs` (Swagger UI) and `/redoc` (ReDoc) on backend endpoints.
+
+---
+
+## Multi-Agent Architecture and Pipeline
+
+The platform utilizes a decoupled, asynchronous pipeline where specialized autonomous agents collaborate sequentially and in parallel to inspect, evaluate, and remediate submitted source code.
 
 ```mermaid
 flowchart TD
-    A[User Code Upload / Snippet Input] --> B[Fast Ingestion & Language Detection Layer]
+    A[Source Code Input: Paste or File Upload] --> B[Ingestion and Language Classification Layer]
     
-    subgraph Parallel Static & Heuristic Phase
+    subgraph Parallel Static and Heuristic Inspection
         B --> C1[AST Code Analysis Agent]
         B --> C2[OWASP Security Vulnerability Agent]
-        B --> C3[Taint Tracking & Data Flow Engine]
+        B --> C3[Heuristic Taint Tracking Engine]
     end
     
-    C1 --> D[Async Multi-Agent Orchestrator]
+    C1 --> D[Asynchronous Multi-Agent Orchestrator]
     C2 --> D
     C3 --> D
     
-    subgraph AI Semantic & Knowledge Enhancement Layer
-        D --> E[Gemini 2.0 Flash Semantic Review Pass]
-        D --> F[RAG Knowledge Base - OWASP & CWE Docs]
+    subgraph High-Throughput AI Augmentation Layer
+        D --> E[Universal AI Router: Groq LPU and Gemini Fallback]
+        D --> F[RAG Security Knowledge Base: OWASP and CWE]
     end
     
-    E --> G[Merge, Deduplicate & Code Health Scoring]
+    E --> G[Deduplication, Normalization, and Health Scoring]
     F --> G
     
-    G --> H1[Interactive Findings & Line Highlighting]
-    G --> H2[Executive PR Summary & Risk Metrics]
-    G --> H3[Automated Code Remediation Engine]
+    G --> H1[Interactive Diagnostic Findings Explorer]
+    G --> H2[Threat Impact Analytics and Distribution Graph]
+    G --> H3[Autonomous Remediation Engine]
     G --> H4[Lyca AI Conversational Assistant]
+    G --> H5[Executive PR Audit Report and PDF Generator]
 
-    H3 --> I[Before / After Diff & 1-Click Code Refactoring]
+    H3 --> I[Side-by-Side Diff Viewer and 1-Click Code Replacement]
 ```
 
 ---
 
-## 🔄 Multi-Agent Workflow: Step-by-Step Order of Operations
+## Order of Operations: Multi-Agent Execution Flow
 
-### **Step 1: Ingestion & Language Classification**
-* When a user uploads a file (`.py`, `.java`, `.js`, `.ts`, `.cpp`, `.c`, `.sql`) or pastes raw code into the Monaco-based IDE workspace, the platform validates syntax and sets language-specific parsing rules.
+### Phase 1: Ingestion, Lexing, and Syntax Validation
+When source code is uploaded or pasted into the editor, the platform performs lexical syntax verification and classifies the language (Python, Java, JavaScript, TypeScript, C++, C, SQL). Invalid syntax structures are caught before execution to prevent downstream parsing failures.
 
-### **Step 2: Parallel Static AST & Security Inspection**
-* **Code Analysis Agent**: Parses the Concrete Syntax Tree (via Python `ast.parse` and regex lexers) to compute complexity metrics, god functions (>50 lines), excessive parameter lists (>5 args), mutable defaults, dead code, and maintainability anti-patterns.
-* **Security Vulnerability Agent**: Performs heuristic scanning against the OWASP Top 10:2021 database for:
-  * **SQL Injection (CWE-89)**: Unparameterized string concatenations, f-strings, and unescaped queries.
-  * **OS Command Injection (CWE-78)**: Dangerous system calls (`os.system`, `subprocess(shell=True)`, `Runtime.exec`).
-  * **Hardcoded Credentials & Secrets (CWE-798)**: Plaintext API keys, JWT secrets, passwords, and private keys.
-  * **Insecure Deserialization (CWE-502)**: Unsafe object loaders (`yaml.load`, `pickle.loads`).
-  * **Arbitrary Code Execution (CWE-95)**: Dynamic code evaluation (`eval()`, `exec()`).
-  * **Cross-Site Scripting - XSS (CWE-79)**: Raw DOM manipulation (`innerHTML`, unescaped `render_template_string`).
-  * **Security Misconfigurations (CWE-16)**: `DEBUG = True`, `verify = False` (disabled SSL), wildcard `ALLOWED_HOSTS`.
-  * **Error Handling Deficiencies (CWE-391)**: Bare `except:` clauses that suppress critical failures.
-* **Taint Tracking Engine**: Maps the flow of untrusted user inputs (`request.args`, `getParameter`, `sys.argv`) directly into vulnerable execution sinks.
+### Phase 2: Parallel Static AST and Security Heuristics
+* **Code Analysis Agent**: Parses the Concrete Syntax Tree (utilizing Python `ast` and language-specific grammar matchers) to compute complexity metrics, identify "God Functions" (>50 lines), excessive parameter lists (>5 arguments), mutable default arguments, dead code, and broad exception suppression.
+* **Security Vulnerability Agent**: Executes heuristic pattern scans mapped against the OWASP Top 10:2021 database and CWE / SANS Top 25 standards:
+  * **SQL Injection (CWE-89)**: Detects dynamic string concatenations, f-string queries, and unescaped database inputs.
+  * **OS Command Injection (CWE-78)**: Identifies raw shell execution calls (`os.system`, `subprocess` with `shell=True`, `Runtime.getRuntime().exec`).
+  * **Hardcoded Credentials and Secrets (CWE-798)**: Identifies plaintext passwords, high-entropy API tokens, private keys, and authorization secrets.
+  * **Insecure Deserialization (CWE-502)**: Flags unsafe serialization loaders (`pickle.loads`, `yaml.load`).
+  * **Arbitrary Code Execution (CWE-95)**: Highlights dynamic interpretation calls (`eval`, `exec`).
+  * **Cross-Site Scripting - XSS (CWE-79)**: Detects unescaped DOM writes (`innerHTML`, unescaped `render_template_string`).
+  * **Security Misconfigurations (CWE-16)**: Flags insecure debug settings (`DEBUG = True`), disabled SSL verification (`verify = False`), and wildcard hosts.
+  * **Exception Handling Deficiencies (CWE-391)**: Locates bare `except:` blocks that suppress runtime failures.
+* **Heuristic Taint Tracking Engine**: Maps the data flow from untrusted input sources (`request.args`, `getParameter`, `sys.argv`) directly into critical sinks.
 
-### **Step 3: AI Semantic Augmentation Layer**
-* Leverages Google Gemini 2.0 Flash via async non-blocking execution (`httpx.AsyncClient`) with connection pooling and strict timeouts.
-* Augments static detections with deep contextual insights, detecting complex multi-file logic flaws and edge-case security risks.
+### Phase 3: High-Throughput AI Semantic Augmentation
+The system invokes an Asynchronous Universal AI Router with strict connection pooling (`httpx.AsyncClient`) and circuit-breaker protection:
+* **Primary**: Groq Cloud running Llama 3.3 70B / Llama 3.1 8B Instant (800+ tokens per second) for near-instant responses.
+* **Fallback**: Google Gemini 2.0 Flash / 1.5 Flash via REST endpoints for deep contextual code reasoning.
 
-### **Step 4: Merge, Scoring & Code Health Normalization**
-* Deduplicates findings from all agents and calculates an objective **Code Health Score (0–100)**:
-  $$\text{Health Score} = \max(0, 100 - (25 \times \text{Critical}) - (15 \times \text{High}) - (5 \times \text{Medium}) - (2 \times \text{Low}))$$
-* Categorizes overall project risk: **Critical**, **High**, **Medium**, or **Low**.
+### Phase 4: Finding Normalization and Code Health Scoring
+Findings are merged, deduplicated, and scored using a deterministic formula:
 
-### **Step 5: Automated Code Remediation Engine (`/fix-all` & `/remediate`)**
-* Refactors code to eliminate 100% of detected vulnerabilities without human intervention.
-* Automatically injects necessary secure imports (`import os`, `import subprocess`, `import ast`, `import logging`, `from markupsafe import escape`).
-* Replaces hardcoded secrets with `os.getenv()` / `System.getenv()`, parameterizes SQL queries (`PreparedStatement` / `?` tuples), wraps commands in safe argument arrays with `shell=False`, and escapes template strings.
+$$\text{Code Health Score} = \max\left(0, 100 - (25 \times \text{Critical}) - (15 \times \text{High}) - (5 \times \text{Medium}) - (2 \times \text{Low})\right)$$
 
-### **Step 6: Conversational Assistant & RAG (Lyca AI)**
-* An embedded AI pair programmer powered by Retrieval-Augmented Generation (RAG) loaded with OWASP guidelines and CWE catalogs.
-* Understands the exact code submitted, explains detected findings line by line, and generates custom refactored code on demand.
+The score assigns a project quality category:
+* **Clean and Secure (80 to 100)**: Minor or negligible warnings.
+* **Moderate Quality (50 to 79)**: Maintainability issues or medium-severity security warnings.
+* **Critical Attention (0 to 49)**: Severe vulnerabilities, exploitable injection vectors, or hardcoded secrets.
 
-### **Step 7: Automated PR Summary & Audit Reporting**
-* Generates comprehensive Pull Request (PR) review summaries including executive risk overviews, severity breakdowns, prioritized fix lists, estimated remediation time, and exportable Markdown audit reports.
+### Phase 5: Autonomous Code Remediation
+* Produces production-ready, refactored code eliminating 100% of detected vulnerabilities.
+* Injects required secure dependencies (`import os`, `import subprocess`, `import ast`, `import logging`, `from markupsafe import escape`).
+* Replaces raw secrets with `os.getenv()` or `System.getenv()`, binds database queries with parameterized statements, converts shell calls to safe list-based `subprocess.run(..., check=True)`, and upgrades unsafe deserializers to `yaml.safe_load()`.
 
----
+### Phase 6: Interactive Pair Programming (Lyca AI)
+An integrated Conversational Assistant backed by Retrieval-Augmented Generation (RAG) and loaded with the full context of the uploaded code, line-by-line findings, and OWASP documentation. It answers developer questions, explains vulnerabilities, and suggests custom refactoring patterns.
 
-## ✨ Complete Website & Platform Features
-
-| Feature | Description |
-| :--- | :--- |
-| **Interactive Code Studio** | Multi-language code editor with syntax highlighting, line numbers, and sample vulnerability presets. |
-| **Instant Real-Time Analysis** | Ultra-fast scan engine delivering full multi-agent review in **under 1 second**. |
-| **Interactive Findings Explorer** | Filter findings by severity (*Critical, High, Medium, Low*), view exact line numbers, and inspect remediation details. |
-| **1-Click "Generate Fixed Code"** | Instantly produces a fully refactored, secure version of the entire uploaded codebase. |
-| **Side-by-Side Diff Viewer** | Split-screen visual diff highlighting exact lines changed, added, or removed. |
-| **Lyca AI Chatbot** | Conversational assistant supporting Floating Popup, Split Screen, and Fullscreen modes. |
-| **Executive PR Summary Dashboard** | Generates audit-ready reports, code health gauges, and structured mitigation roadmaps. |
-| **Scan History & Persistence** | Saves previous scans in browser `localStorage` for immediate recall and comparison. |
-| **Exportable Reports** | Download full review findings as structured Markdown or JSON reports for CI/CD integration. |
+### Phase 7: PR Summary and Audit Report Generation
+Compiles an executive summary including risk distributions, time-to-remediate estimates, structured mitigation checklists, and automated PDF export functionality for formal pull request audits.
 
 ---
 
-## 🎯 OWASP Top 10 Vulnerability Coverage Matrix
+## Web Application Features and User Interface
 
-| OWASP Category | Vulnerability Type | Detection Mechanism | Automated Remediation |
-| :--- | :--- | :--- | :--- |
-| **A01: Broken Access Control** | Path Traversal / SSRF | Pattern & AI Semantic | Path sanitization & IP validation |
-| **A02: Cryptographic Failures** | Weak Hash (MD5/SHA-1), Hardcoded Keys | AST & Regex Scanner | SHA-256 upgrade & `os.getenv` extraction |
-| **A03: Injection** | SQLi, Command Injection, XSS, `eval()` | Taint Tracker & AST | Parameterized queries, `subprocess.run(list)`, `escape()` |
-| **A05: Security Misconfiguration** | Debug Mode, Disabled SSL (`verify=False`) | Heuristic Scanner | `DEBUG = False`, `verify = True`, strict hosts |
-| **A07: Identification & Auth** | Hardcoded Passwords, Tokens, API Keys | Entropy & AST Assign | Environment variable configuration (`os.getenv`) |
-| **A08: Software & Data Integrity** | Insecure Deserialization (`pickle`, `yaml`) | AST Sink Matcher | `yaml.safe_load()`, `json.loads()` replacement |
-| **A09: Logging & Monitoring** | Bare `except:`, Silent Failures | AST Exception Handler | `except Exception as e:` with `logging.error()` |
-
----
-
-## 🛠️ Technology Stack
-
-### **Frontend**
-- **Framework**: React 19, Vite
-- **Styling**: Tailwind CSS & Modern Glassmorphism CSS Design Tokens
-- **Icons**: Material Symbols, Lucide React
-- **Markdown & Code Rendering**: ReactMarkdown, RemarkGfm, PrismJS / Monaco Editor syntax styling
-
-### **Backend**
-- **Framework**: FastAPI (Python 3.11+)
-- **Async Runtime**: Uvicorn, `asyncio`, `httpx.AsyncClient`
-- **AI / LLM Integration**: Google Gemini 2.0 Flash (`google-genai`), Groq API fallback
-- **Static Analysis**: Python `ast`, Regex Lexing, Taint Tracking Engine
-- **Data Validation**: Pydantic v2
-
----
-
-
-## 📡 Key API Endpoints
-
-| Method | Endpoint | Description |
+| Component | Feature | Functional Description |
 | :--- | :--- | :--- |
-| `POST` | `/analyze/text` | Runs the full multi-agent static & semantic analysis on raw code. |
-| `POST` | `/analyze/file` | Accepts multi-language file uploads for analysis. |
-| `POST` | `/fix-all` | Generates a complete, remediated, production-ready codebase. |
-| `POST` | `/remediate` | Returns structured JSON fix details for an individual finding. |
-| `POST` | `/chat` | Context-aware AI assistant answering code & security queries. |
-| `POST` | `/pr-summary` | Generates executive audit metrics and PR summaries. |
-| `GET` | `/health` | System health check and API status endpoint. |
+| **Code Studio** | Multi-Language Editor | Integrated syntax-highlighting code editor with line numbering, automatic language detection, and sample vulnerability presets. |
+| **Code Studio** | Clipboard and File Ingestion | One-click clipboard import or drag-and-drop file upload supporting `.py`, `.java`, `.js`, `.ts`, `.cpp`, `.c`, and `.sql`. |
+| **Diagnostic Results** | Code Health Score Radial Gauge | Visual circular gauge providing an immediate 0 to 100 health index with defect counts, blocker tallies, and estimated fix times. |
+| **Diagnostic Results** | Threat Distribution Analytics | Interactive Recharts Bar Chart mapping defect frequency, impact scores, and cause percentages. Includes clickable bars for inline root cause callouts. |
+| **Diagnostic Results** | Interactive Findings Explorer | Severity-filtered finding cards (All, Critical, High, Medium, Low) displaying line numbers, defect explanations, remediation actions, and before/after snippets. |
+| **Remediation** | One-Click Code Remediation | Global `/fix-all` engine generating a fully patched, compilable codebase resolving all identified flaws. |
+| **Remediation** | Side-by-Side Diff Viewer | Split-screen visual diff comparing original code against remediated code with line-by-line additions and deletions. |
+| **Assistant** | Lyca AI Chatbot | Context-aware security pair programmer with support for Floating Popup, Split Screen (docked 50% width), and Fullscreen modes. |
+| **Reporting** | PDF Audit Report Export | Browser-native formal report generator compiling executive overviews, defect breakdowns, root cause analyses, patched code, and compliance sign-offs into printable PDF format. |
+| **History** | Scan History and Persistence | LocalStorage-backed scan repository (`aegis_ai_history_v1`) supporting real-time search, language filters, risk filters, sorting, and one-click scan restoration. |
+| **Agents Pipeline** | Execution Pipeline Visualization | Live agent status indicators (Code Analysis Agent, Security Agent, Remediation Agent) with pipeline stage tracking. |
+| **Agents Pipeline** | Live Execution Terminal | Real-time simulated terminal log tracing internal orchestrator decisions, model routing, and AST evaluation steps. |
+| **Design System** | Dual Theme Support | Persistent Glassmorphism Dark Mode and Clean Light Mode with automatic theme memory and transient intro notification. |
 
 ---
 
-## 📁 Repository Structure
+## Vulnerability and Compliance Matrix
+
+| OWASP Standard | CWE Reference | Classification | Detection Technique | Automated Mitigation |
+| :--- | :--- | :--- | :--- | :--- |
+| **A01: Broken Access Control** | CWE-22, CWE-918 | Path Traversal / SSRF | Pattern Heuristics and Semantic Analysis | Input sanitization, path boundary enforcement, and IP verification |
+| **A02: Cryptographic Failures** | CWE-327, CWE-798 | Weak Hashes (MD5, SHA-1), Plaintext Keys | AST Assignment Matcher and Entropy Scanning | SHA-256 upgrade and environment variable extraction (`os.getenv`) |
+| **A03: Injection** | CWE-89, CWE-78, CWE-95 | SQLi, OS Command Injection, Arbitrary Eval | Taint Flow Tracking and AST Call Analysis | Parameterized queries (`PreparedStatement`), `subprocess.run(list, check=True)`, elimination of `eval` |
+| **A05: Security Misconfiguration** | CWE-16 | Debug Mode Enabled, Disabled SSL (`verify=False`) | Heuristic Flag Inspection | `DEBUG = False`, `verify = True`, explicit allowed host configuration |
+| **A07: Identification and Auth** | CWE-798 | Hardcoded Database Passwords, API Tokens | Static Token and Constant Scanner | Externalization to environment variables or secret management services |
+| **A08: Software and Data Integrity** | CWE-502 | Insecure Deserialization (`pickle`, `yaml.load`) | AST Dangerous Sink Matcher | Migration to `yaml.safe_load()` and structured `json.loads()` |
+| **A09: Logging and Monitoring** | CWE-391 | Bare `except:` Clauses, Silent Exception Swallowing | AST Try-Except Block Analyzer | Replacement with `except Exception as e:` and structured `logging.error()` |
+
+---
+
+## Technology Stack
+
+### Frontend
+* **Core Framework**: React 18 with Vite for optimized client-side bundling.
+* **Styling and Tokens**: Tailwind CSS 3.4 coupled with bespoke CSS glassmorphism design tokens.
+* **Visualization and Charts**: Recharts (ResponsiveContainer, BarChart, PieChart, Tooltip).
+* **Code Formatting**: PrismJS syntax highlighting and ReactMarkdown for rich text rendering.
+* **Typography and Icons**: Google Fonts (Space Grotesk, Inter, JetBrains Mono) and Material Symbols.
+
+### Backend
+* **API Framework**: FastAPI (Python 3.11+) running on an asynchronous Uvicorn ASGI server.
+* **Data Validation**: Pydantic v2 strict models for all request and response schemas.
+* **Static Analysis**: Python standard `ast`, custom regex lexers, Radon for cyclomatic complexity, and Bandit security linters.
+* **Vector Store and RAG**: ChromaDB embedding store containing OWASP Top 10 guidelines and CWE taxonomies.
+* **Relational Persistence**: SQLAlchemy 2.0 with PostgreSQL 16 (production) and aiosqlite (local/demo).
+* **Authentication and Security**: Passlib (Bcrypt hashing), Python-Jose (JWT generation and validation).
+
+### AI and LLM Orchestration
+* **Groq Cloud**: Llama 3.3 70B Versatile and Llama 3.1 8B Instant via REST API for sub-second responses.
+* **Google Gemini**: Gemini 2.0 Flash / Gemini 1.5 Flash via REST API endpoints for deep semantic security evaluations.
+* **Resilience Layer**: Universal AI Router with asynchronous connection pooling, provider blacklisting, and circuit-breaking fallbacks.
+
+---
+
+## API Reference
+
+The backend provides high-performance REST endpoints configured with CORS support:
+
+| Method | Endpoint | Request Body | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/analyze/text` | `{"code": "...", "language": "python", "filename": "..."}` | Executes complete multi-agent analysis on raw source code. |
+| `POST` | `/analyze/file` | `multipart/form-data (file: UploadFile)` | Accepts multi-language source file uploads for security scanning. |
+| `POST` | `/fix-all` | `{"code": "...", "language": "python", "findings": [...]}` | Produces a fully refactored, secure codebase resolving all findings. |
+| `POST` | `/remediate` | `{"finding": {...}, "code": "...", "language": "..."}` | Returns isolated remediation details and code fixes for a single finding. |
+| `POST` | `/chat` | `{"question": "...", "context_code": "...", "context_findings": [...], "conversation_history": [...]}` | Context-aware conversational AI assistant queries with message memory. |
+| `POST` | `/pr-summary` | `{"analysis_result": {...}, "filename": "...", "language": "..."}` | Generates an executive PR audit report and remediation roadmap. |
+| `POST` | `/rag/query` | `{"question": "...", "context": "..."}` | Queries the vector knowledge base for OWASP and CWE reference data. |
+| `GET` | `/health` | None | Service heartbeat and uptime validation endpoint. |
+
+---
+
+## Repository Structure
 
 ```text
 .
-├── ai_code_review/
-│   ├── main.py                     # Unified FastAPI server & agent router
-│   ├── requirements.txt            # Python backend dependencies
-│   ├── verify.py                   # Automated regression test suite (25 test cases)
-│   ├── agents/                     # Specialized agent modules
-│   │   ├── code_analysis_agent.py  # AST code quality & complexity analyzer
-│   │   ├── security_agent.py       # OWASP vulnerability detection agent
-│   │   ├── remediation_agent.py    # Automated refactoring & fix generator
-│   │   ├── pr_summary_agent.py     # PR summary & audit report generator
-│   │   └── orchestrator.py         # Multi-agent workflow orchestrator
-│   ├── modules/
-│   │   ├── taint_tracker.py        # Source-to-sink taint analysis engine
-│   │   └── rag_pipeline.py         # Knowledge-base retrieval pipeline
-│   └── knowledge_base/             # OWASP & CWE security reference catalogs
-│
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx                 # Master application component & tab coordinator
-│   │   ├── main.jsx                # React DOM entry point
-│   │   ├── api/client.js           # API client for backend integration
-│   │   ├── components/             # Reusable UI components & modals
-│   │   ├── pages/                  # Route views (Workspace, Review, PR Summary, Chat)
-│   │   └── styles/index.css        # Premium glassmorphism design system
-│   ├── package.json                # Frontend dependencies
-│   └── vite.config.js              # Vite bundler configuration
-│
-├── samples/                        # Pre-configured test benchmark files
-│   ├── 1_basic_injection.py        # SQLi, secrets, bare except test
-│   ├── 2_complex_auth.java         # Java SQLi, credential constant, printStackTrace test
-│   └── 3_advanced_vulns.py         # Command injection, YAML deserialization, XSS test
-│
-├── LICENSE                         # MIT Open-Source License
-└── README.md                       # Master project documentation
+|-- ai_code_review/
+|   |-- agents/
+|   |   |-- code_analysis_agent.py   # AST parsing, code smells, complexity metrics
+|   |   |-- orchestrator.py          # Asynchronous multi-agent execution pipeline
+|   |   |-- pr_summary_agent.py      # Executive audit summary and metrics generator
+|   |   |-- remediation_agent.py     # Deterministic and LLM refactoring engine
+|   |   `-- security_vuln_agent.py   # OWASP Top 10 and CWE vulnerability scanner
+|   |-- knowledge_base/              # OWASP standards and CWE reference documentation
+|   |-- modules/
+|   |   |-- rag_pipeline.py          # Vector retrieval-augmented generation engine
+|   |   |-- submission.py            # Input validation and language classification
+|   |   `-- taint_tracker.py         # Heuristic source-to-sink data flow tracer
+|   |-- main.py                      # Primary FastAPI microservice API server
+|   |-- requirements.txt             # Python backend dependencies
+|   `-- verify.py                    # 25-test automated regression verification suite
+|
+|-- backend/                         # Enterprise backend application
+|   |-- agents/                      # Distributed agent wrappers
+|   |-- api/                         # FastAPI route modules (auth, reviews, submissions, chat)
+|   |-- core/                        # Configuration, database, and security utilities
+|   |-- models/                      # SQLAlchemy database models
+|   |-- rag/                         # ChromaDB vector knowledge base and seeder
+|   |-- Dockerfile                   # Backend Docker container specification
+|   |-- main.py                      # Enterprise FastAPI application entry point
+|   `-- requirements.txt             # Backend dependencies
+|
+|-- frontend/                        # Client-side user interface
+|   |-- src/
+|   |   |-- api/
+|   |   |   `-- client.js            # Axios and Fetch API client for backend integration
+|   |   |-- styles/
+|   |   |   `-- index.css            # Tailwind directives and glassmorphism styling
+|   |   |-- App.jsx                  # Master UI component, state management, and tab views
+|   |   `-- main.jsx                 # React DOM application entry point
+|   |-- Dockerfile                   # Frontend Nginx container specification
+|   |-- package.json                 # Frontend dependencies and scripts
+|   `-- vite.config.js               # Vite bundler configuration
+|
+|-- samples/                         # Security benchmark test files
+|   |-- 1_basic_injection.py         # SQL injection, command injection, plaintext secret
+|   |-- 2_complex_auth.java          # Java SQL concatenation, constant credentials
+|   `-- 3_advanced_vulns.py          # Insecure YAML loading, SSRF, XSS templates
+|
+|-- docs/                            # Architectural specifications and milestone reports
+|   |-- Milestone4_Project_Report.md
+|   |-- Project_Technical_Report.md
+|   `-- Volume-01-Project-Foundation.md
+|
+|-- docker-compose.yml               # Multi-container orchestration (Postgres, Chroma, Backend, Frontend)
+|-- LICENSE                          # MIT Open-Source License
+`-- README.md                        # Master project documentation
 ```
 
 ---
 
-## 🧪 Verification & Testing
+## Local Setup and Installation
 
-To run the automated 25-point regression test suite:
+### Prerequisites
+* **Python**: Version 3.11 or higher
+* **Node.js**: Version 18.0 or higher (with npm)
+* **Docker & Docker Compose**: Optional, for multi-container orchestration
 
-```powershell
+### 1. Repository Configuration
+Clone the repository and prepare your environment configuration:
+
+```bash
+git clone https://github.com/Rafi0496/AI-Code-Review-Security-Analysis-Agent.git
+cd AI-Code-Review-Security-Analysis-Agent
+```
+
+Create a `.env` file in the project root:
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+DATABASE_URL=sqlite+aiosqlite:///./codereview.db
+SECRET_KEY=generate_a_secure_random_key
+```
+
+### 2. Backend Installation and Execution
+
+Navigate to the backend directory and set up a Python virtual environment:
+
+```bash
+python -m venv venv
+# On Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# On Linux/macOS:
+source venv/bin/activate
+
+pip install -r ai_code_review/requirements.txt
+```
+
+Launch the FastAPI backend server:
+
+```bash
+uvicorn ai_code_review.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+The API will be available at `http://127.0.0.1:8000`, with interactive documentation at `http://127.0.0.1:8000/docs`.
+
+### 3. Frontend Installation and Execution
+
+In a separate terminal, install dependencies and start the Vite development server:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The web application will open at `http://localhost:5173`.
+
+### 4. Full-Stack Docker Deployment
+
+To launch the complete infrastructure (PostgreSQL database, ChromaDB vector store, FastAPI backend, and React client) using Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+---
+
+## Verification and Test Suite
+
+The platform includes an automated 25-point regression test suite (`ai_code_review/verify.py`) validating syntax validation, taint tracking, AST analysis, OWASP security detection, and deterministic remediation:
+
+```bash
 python ai_code_review/verify.py
 ```
 
 Expected output:
 ```text
+  PASS  All modules imported
+  PASS  from_text python valid
+  PASS  from_text java valid
+  PASS  Syntax error rejected
+  PASS  Unsupported language rejected
+  PASS  Case-insensitive language
+  PASS  TaintTracker detects SQL injection
+  PASS  TaintTracker detects command injection
+  PASS  TaintTracker clean on safe code
+  PASS  CodeAnalysisAgent finds god function
+  PASS  CodeAnalysisAgent finds mutable default
+  PASS  CodeAnalysisAgent finds bare except
+  PASS  CodeAnalysisAgent clean code has no high findings
+  PASS  SecurityVulnAgent finds SQL injection
+  PASS  SecurityVulnAgent finds command injection
+  PASS  SecurityVulnAgent finds hardcoded secret
+  PASS  SecurityVulnAgent finds eval
+  PASS  SecurityVulnAgent finds pickle
+  PASS  SecurityVulnAgent clean on safe code
+  PASS  Orchestrator health score calculation
+  PASS  Orchestrator health score capped at 0
+  PASS  Orchestrator clean code gets 100
+  PASS  Orchestrator parallel scan works
+  PASS  Orchestrator summary counts match findings
+  PASS  RAG pipeline instantiates
 ==================================================
   Results: 25 passed, 0 failed
 ==================================================
@@ -215,6 +347,6 @@ Expected output:
 
 ---
 
-## 📜 License
+## License
 
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.
+This project is licensed under the **MIT License**. Refer to the [`LICENSE`](LICENSE) file for complete terms and licensing details.
