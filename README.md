@@ -14,8 +14,7 @@ An enterprise-grade, multi-agent artificial intelligence platform designed to au
 
 ## Production Deployments
 
-* **Production Web Application**: [https://ai-code-review-security-analysis-ag.vercel.app](https://ai-code-review-security-analysis-ag.vercel.app)
-* **Backend Microservice API**: [https://ai-code-review-security-analysis-agent.onrender.com](https://ai-code-review-security-analysis-agent.onrender.com)
+* **Production Web Application**: [https://ai-code-review-security-analysis-ag.vercel.app](aegisyn.vercel.app)
 * **API Documentation**: Available at `/docs` (Swagger UI) and `/redoc` (ReDoc) on backend endpoints.
 
 ---
